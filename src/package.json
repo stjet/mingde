@@ -1,0 +1,20 @@
+{
+  "name": "mingde",
+  "version": "0.0.1",
+  "description": "Desktop environment in HTML Canvas, because why not",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsc -w -p . --preserveWatchOutput & python -m http.server 1381"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jetstream0/mingde.git"
+  },
+  "author": "jetstream0/Prussia",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/jetstream0/mingde/issues"
+  },
+  "homepage": "https://github.com/jetstream0/mingde#readme"
+}

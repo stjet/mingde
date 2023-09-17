@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <title>Mingde</title>
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%
+      }
+
+      canvas {
+        /* apparently, it is display: inline by default, which causes overflowing */
+        display: block;
+      }
+    </style>
   </head>
   <body>
     <div id="canvas-container"></div>
