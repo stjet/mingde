@@ -3,9 +3,12 @@
   "version": "0.0.1",
   "description": "Desktop environment in HTML Canvas, because why not",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsc -w -p . --preserveWatchOutput & python -m http.server 1381"
+    "server": "python -m http.server 1381",
+    "dev": "tsc -w -p . --preserveWatchOutput & npm run server",
+    "build": "tsc -p . && ./node_modules/.bin/esbuild index.js --bundle --minify --outfile=index.js --allow-overwrite"
   },
   "repository": {
     "type": "git",
@@ -16,5 +19,9 @@
   "bugs": {
     "url": "https://github.com/jetstream0/mingde/issues"
   },
-  "homepage": "https://github.com/jetstream0/mingde#readme"
+  "homepage": "https://github.com/jetstream0/mingde#readme",
+  "devDependencies": {
+    "esbuild": "0.19.3",
+    "typescript": "^5.2.2"
+  }
 }
