@@ -1,3 +1,13 @@
+export enum DesktopBackgroundTypes {
+  Solid = "Solid", //solid colour
+}
+
+export interface DesktopBackgroundValues {
+  [DesktopBackgroundTypes.Solid]: string,
+}
+
+export type DesktopBackgroundInfo<T extends DesktopBackgroundTypes> = [T, DesktopBackgroundValues[T]];
+
 export enum Themes {
   Standard = "Standard",
 }

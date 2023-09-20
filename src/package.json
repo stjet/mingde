@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "python -m http.server 1381",
+    "server": "node ../preview.js",
     "dev": "tsc -w -p . --preserveWatchOutput & npm run server",
     "build": "tsc -p . && ./node_modules/.bin/esbuild index.js --bundle --minify --outfile=index.js --allow-overwrite"
   },
