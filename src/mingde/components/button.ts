@@ -1,9 +1,10 @@
 import { Component, WindowLike, WindowMessage } from '../wm.js';
-import { Themes, THEME_INFOS } from '../themes.js';
+import { Themes, ThemeInfo, THEME_INFOS } from '../themes.js';
 import { SCALE, AUX_FONT_NAME, FONT_SIZES } from '../constants.js';
 
-export class Button<MessageType> {
+export class Button<MessageType> implements Component<MessageType> {
   readonly type: string = "button";
+  clickable: boolean = true;
 
   id: string;  
   parent: WindowLike<MessageType>;
@@ -27,7 +28,7 @@ export class Button<MessageType> {
     this.click_func = click_func;
   }
   render_view(theme: Themes) {
-    const theme_info = THEME_INFOS[theme];
+    const theme_info: ThemeInfo = THEME_INFOS[theme];
     this.parent.context.font = `${FONT_SIZES.NORMAL}px ${AUX_FONT_NAME}`;
     const measured = this.parent.context.measureText(this.text);
     const height = this.padding_y * 2 + FONT_SIZES.NORMAL;
