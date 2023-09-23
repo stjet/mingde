@@ -6,6 +6,9 @@
     "lib": [
       "ESNext",
       "DOM"
-    ]
+    ],
+    "strict": true,
+    "noUnusedParameters": true,
+    "noUnusedLocals": true
   }
 }

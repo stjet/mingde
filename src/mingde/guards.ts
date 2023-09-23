@@ -1,6 +1,6 @@
 import { WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
-import { ChangeCursorValue, CursorType } from './requests.js';
+import { ChangeCursorValue, ChangeCoordsValue, CursorType } from './requests.js';
 
 //maybe these should all just be inlined instead of in this file?
 
@@ -16,8 +16,15 @@ export function isWheelEvent(event: any): event is WheelEvent {
   return event instanceof WheelEvent;
 }
 
+/*
 export function isUIEvent(event: any): event is UIEvent {
   return event instanceof UIEvent;
+}
+*/
+
+export function isCoords(maybe_coords: any): maybe_coords is [number, number] {
+  if (typeof maybe_coords?.[0] === "number" && typeof maybe_coords?.[1] === "number" && maybe_coords?.length === 2) return true;
+  return false;
 }
 
 export function isDesktopBackgroundInfo(maybe_desktop_bg_info: any): maybe_desktop_bg_info is DesktopBackgroundInfo<DesktopBackgroundTypes> {
@@ -39,6 +46,11 @@ export function isChangeCursorValue(maybe_change_cursor: any): maybe_change_curs
   return false;
 }
 
+export function isChangeCoordsValue(maybe_change_coords: any): maybe_change_coords is ChangeCoordsValue {
+  if (Number(maybe_change_coords?.delta_coords?.[0]) !== undefined && Number(maybe_change_coords?.delta_coords?.[1]) !== undefined && maybe_change_coords?.delta_coords.length === 2) return true;
+  return false;
+}
+
 //typescript doesn't autodetect that render_view_window exists on Window? idk why, hope this doesn't cause any problems
 export function isWindow(maybe_window: any): maybe_window is Window {
   //instanceof Window doesn't work here, idk why
@@ -49,7 +61,7 @@ export function isWindow(maybe_window: any): maybe_window is Window {
 //probably should not be WindowLike<any>
 export function isWindowLike(maybe_window_like: any): maybe_window_like is WindowLike<any> {
   if (maybe_window_like?.type === "window-like") return true;
-  return false
+  return false;
 }
 
 export function isWindowManager(maybe_wm: any): maybe_wm is WindowManager {

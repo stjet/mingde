@@ -2,7 +2,7 @@ import { Component, Layer, WindowLike, WindowLikeType, WindowMessage, WindowOpti
 import { WindowRequest, WindowRequestValue, WindowRequestValues } from './requests.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEME_INFOS } from './themes.js';
 import { SCALE } from './constants.js';
-import { isDesktopBackgroundInfo } from './guards.js';
+import { isCoords, isDesktopBackgroundInfo } from './guards.js';
 
 export enum DesktopBackgroundMessage {
   //
@@ -21,7 +21,6 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
   private secret;
 
   size: [number, number];
-  coords: [number, number];
 
   do_rerender: boolean;
   canvas: HTMLCanvasElement;
@@ -32,7 +31,6 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
 
   constructor() {
     this.size = [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE];
-    this.coords = [0, 0];
     //set to true for first render
     this.do_rerender = true;
     this.canvas = document.createElement("canvas");
@@ -57,10 +55,10 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
       if (!this.do_rerender) return;
       if (isDesktopBackgroundInfo(options?.desktop_background_info)) {
         //draw the background
-        const bg_info = options.desktop_background_info;
+        const bg_info: DesktopBackgroundInfo<DesktopBackgroundTypes> = options.desktop_background_info;
         if (bg_info[0] === DesktopBackgroundTypes.Solid) {
           this.context.fillStyle = bg_info[1];
-          this.context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
+          this.context.fillRect(0, 0, this.size[0], this.size[1]);
         }
         //handle other types when they exist
       }
@@ -73,7 +71,10 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
     //
   }
   handle_message(message: DesktopBackgroundMessage | WindowMessage, data: any): boolean {
-    //
+    if (message === WindowMessage.Resize && isCoords(data)) {
+      this.size = data;
+      this.do_rerender = true;
+    }
     return this.do_rerender;
   }
 }
