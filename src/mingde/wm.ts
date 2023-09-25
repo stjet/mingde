@@ -1,11 +1,28 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isChangeCursorValue, isChangeCoordsValue, isMouseEvent, isThemes, isWindow, isWindowLike, isWindowManager } from './guards.js';
-import { CONFIG, WINDOW_TOP_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
+import { isCoords, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isMouseEvent, isThemes, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret } from './utils.js';
 
+import { TaskbarMessage } from './taskbar.js';
 import { Button } from './components/button.js';
 import { TextLine } from './components/text_line.js';
+
+export enum WindowMessage {
+  KeyDown = "KeyDown",
+  MouseMove = "MouseMove",
+  MouseDown = "MouseDown",
+  MouseUp = "MouseUp",
+  MouseLeave = "MouseLeave",
+  Wheel = "Wheel",
+  ContextMenu = "ContextMenu",
+  Resize = "Resize",
+  ChangeTheme = "ChangeTheme",
+  MouseMoveOutside = "MouseMoveOutside", //give mouse movements outside the windowlikes without coords data
+  MouseUpOutside = "MouseUpOutside",
+  WindowAdd = "WindowAdd",
+  WindowRemove = "WindowRemove",
+}
 
 //Inspired by Elm Architecture
 export interface Elm<MessageType> {
@@ -19,9 +36,11 @@ export interface Component<MessageType> extends Elm<MessageType> {
   id: string; //readonly?
   coords: [number, number];
   size: [number, number];
-  parent: WindowLike<MessageType>; //readonly?
+  readonly parent: WindowLike<MessageType | WindowMessage>; //readonly?
   clickable: boolean;
 }
+
+export type Member = Component<any> | WindowLike<any>;
 
 export interface Canvas<MessageType, MemberType extends Member> extends Elm<MessageType> {
   canvas: HTMLCanvasElement;
@@ -30,17 +49,13 @@ export interface Canvas<MessageType, MemberType extends Member> extends Elm<Mess
   layers: Layer<MemberType>[];
 }
 
-export enum WindowMessage {
-  KeyDown = "KeyDown",
-  MouseMove = "MouseMove",
-  MouseDown = "MouseDown",
-  MouseUp = "MouseUp",
-  Wheel = "Wheel",
-  ContextMenu = "ContextMenu",
-  Resize = "Resize",
-  ChangeTheme = "ChangeTheme",
-  MouseMoveOutside = "MouseMoveOutside", //give mouse movements outside the windowlikes without coords data
-  MouseUpOutside = "MouseUpOutside",
+export interface WindowMetadata {
+  id: string;
+  title: string;
+}
+
+export interface WindowChangeEvent extends Event {
+  detail: WindowMetadata;
 }
 
 export interface WindowMessageValues {
@@ -48,43 +63,47 @@ export interface WindowMessageValues {
   [WindowMessage.MouseMove]: MouseEvent,
   [WindowMessage.MouseDown]: MouseEvent,
   [WindowMessage.MouseUp]: MouseEvent,
+  [WindowMessage.MouseLeave]: boolean,
   [WindowMessage.ContextMenu]: MouseEvent,
   [WindowMessage.Wheel]: WheelEvent,
   [WindowMessage.Resize]: [number, number],
   [WindowMessage.ChangeTheme]: Themes,
   [WindowMessage.MouseMoveOutside]: MouseEvent,
   [WindowMessage.MouseUpOutside]: boolean,
+  [WindowMessage.WindowAdd]: WindowChangeEvent,
+  [WindowMessage.WindowRemove]: WindowChangeEvent,
 }
 
 export enum WindowLikeType {
   Window,
   DesktopBackground,
+  Taskbar,
 }
 
 export interface WindowOptions {
   desktop_background_info: DesktopBackgroundInfo<DesktopBackgroundTypes>;
 }
 
-export interface WindowLike<MessageType> extends Canvas<MessageType | WindowMessage, Component<any>> {
+export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component<any>> {
   readonly sub_type: WindowLikeType;
   readonly render_view_window: (theme: Themes, options?: WindowOptions) => void;
-  readonly handle_message_window: (message: MessageType, data: any) => boolean;
+  readonly handle_message_window: (message: MessageType | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
   do_rerender: boolean; //if false, even if windowmanager renders everyone, do not redraw canvas (performance improvement, not currently enforced)
   layers: Layer<Component<any>>[];
-  handle_message(message: MessageType, data: any): void;
-  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret: string) => void;
+  handle_message(message: MessageType | WindowMessage, data: any): void;
+  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 }
 
-export class Window implements WindowLike<any | WindowMessage> {
+export class Window<MessageType> implements WindowLike<MessageType> {
   readonly type: string = "window-like";
   readonly sub_type: WindowLikeType = WindowLikeType.Window;
 
   id: string;
   readonly render_view_window: (theme: Themes) => void;
-  readonly handle_message_window: (message: any | WindowMessage, data: any) => boolean;
+  readonly handle_message_window: (message: MessageType | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
-  readonly top_components: Component<any | WindowMessage>[];
+  readonly top_components: Component<MessageType | WindowMessage>[];
 
   private secret: string;
   private move_mode: boolean;
@@ -98,9 +117,9 @@ export class Window implements WindowLike<any | WindowMessage> {
   do_rerender: boolean;
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
-  layers: Layer<Component<any>>[];
+  layers: Layer<Component<MessageType | WindowMessage>>[];
 
-  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret: string) => void;
+  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
   constructor(size: [number, number], title: string) {
     this.size = [size[0] * SCALE, size[1] * SCALE];
@@ -115,22 +134,21 @@ export class Window implements WindowLike<any | WindowMessage> {
     this.context = this.canvas.getContext("2d");
     this.layers = [];
     //this is a placeholder, layer should insert one in or something idk, slightly weird, I know
-    this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret: string) => void 0;
-    //again, probably not needed
-    let self = this;
+    this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret?: string) => void 0;
     //layer can set secret, it can only be set once
     this.set_secret = (secret: string) => {
-      if (self.secret) return;
-      self.secret = secret;
+      if (this.secret) return;
+      this.secret = secret;
     };
     //Window top bar components, currently window title and close button
     this.top_components = [
-      new Button<any | WindowMessage>(this, "x", [this.size[0] / SCALE - 4 - 17, WINDOW_TOP_HEIGHT / SCALE - 4 - 17], 17, 2.5, () => {
-        self.send_request(WindowRequest.CloseWindow, {}, this.secret);
+      new Button<MessageType | WindowMessage>(this, "x", [this.size[0] / SCALE - 4 - 17, WINDOW_TOP_HEIGHT / SCALE - 4 - 17], 17, 1, () => {
+        this.send_request(WindowRequest.CloseWindow, {}, this.secret);
       }),
-      new TextLine<any | WindowMessage>(this, this.title, [4, WINDOW_TOP_HEIGHT / SCALE - (WINDOW_TOP_HEIGHT - FONT_SIZES["TOP"]) / SCALE / 2], "text_top", "TOP", this.size[0] - 17 * SCALE),
+      new TextLine<MessageType | WindowMessage>(this, this.title, [4, WINDOW_TOP_HEIGHT / SCALE - (WINDOW_TOP_HEIGHT - FONT_SIZES["TOP"]) / SCALE / 2], "text_top", "TOP", this.size[0] - 17 * SCALE),
     ];
     //intercept requests, so top bar close button, dragging, etc, can't be overriden
+    //bug: where move mode still happens when dragging window near bottom and releasing on taskbar?
     this.handle_message_window = (message: WindowMessage, data: any) => {
       let propogate_down = true;
       if (message === WindowMessage.MouseDown) {
@@ -198,6 +216,14 @@ export class Window implements WindowLike<any | WindowMessage> {
             }, this.secret);
           }
         }
+      } else if (message === WindowMessage.MouseLeave) {
+        propogate_down = false;
+        if (this.move_mode) {
+          this.move_mode = false;
+          this.send_request(WindowRequest.ChangeCursor, {
+            new_cursor: CursorType.Default,
+          }, this.secret);
+        }
       } else if (message === WindowMessage.MouseMoveOutside) {
         propogate_down = false;
         //stop cursor if move out of window top and not in move mode
@@ -260,13 +286,11 @@ export class Window implements WindowLike<any | WindowMessage> {
   render_view(_theme: Themes) {
     //deliberately left empty, should be overridden by any extending classes
   }
-  handle_message(_message: WindowMessage, _data: any): boolean {
-    //also meant to be overriden, I think
+  handle_message(_message: MessageType | WindowMessage, _data: any): boolean {
+    //also meant to be overriden
     return this.do_rerender;
   }
 }
-
-export type Member = Component<any> | WindowLike<any>;
 
 export class Layer<MemberType extends Member> {
   layer_name: string;
@@ -295,28 +319,48 @@ export class Layer<MemberType extends Member> {
   get coords() {
     return this._coords;
   }
-  add_member(member: MemberType, coords: [number, number]) {
+  reset() {
+    this._members = [];
+    this._secrets = {};
+    this._coords = {};
+  }
+  get_member_by_id(id: string) {
+    return this._members.find((member) => member.id === id);
+  }
+  add_member(member: MemberType, coords?: [number, number]) {
     //yeah, both isWindow and instanceof are needed
     if (this.windows_only && !(isWindow(member) && member instanceof Window)) {
       return;
     }
+    if (isWindowManager(this.parent) && isWindowLike(member) && !coords) {
+      console.error("`WindowLike` must provide coords to ");
+      return;
+    }
     this.member_num++;
     member.id = `${this.layer_name}-${this.member_num}-${member.type}`;
+    if (isWindow(member) && member instanceof Window && isWindowManager(this.parent)) {
+      this.parent.canvas.dispatchEvent(new CustomEvent("mingdewindowadd", {
+        detail: {
+          id: member.id,
+          title: member.title,
+        },
+      }));
+    }
     if (isWindowLike(member)) {
-      let self = this; //probably not needed? makes it more clear at least
+      let self_layer = this; //is this needed? makes it more clear at least
       this._secrets[member.id] = gen_secret();
       this._coords[member.id] = [coords[0] * SCALE, coords[1] * SCALE];
       member.set_secret(this._secrets[member.id]);
-      member.send_request = (request: WindowRequest, data: WindowRequestValue, secret: string) => {
+      member.send_request = (request: WindowRequest, data: WindowRequestValue, secret?: string) => {
         data.id = member.id;
-        data.layer_name = self.layer_name;
-        if (secret === self._secrets[member.id]) {
+        data.layer_name = self_layer.layer_name;
+        if (secret === self_layer._secrets[member.id]) {
           data.trusted = true;
         } else {
           data.trusted = false;
         }
-        if (isWindowManager(self.parent)) {
-          self.parent.handle_request(request, data);
+        if (isWindowManager(self_layer.parent)) {
+          self_layer.parent.handle_request(request, data);
         }
       };
     }
@@ -325,7 +369,16 @@ export class Layer<MemberType extends Member> {
   remove_member(id: string) {
     delete this._secrets[id];
     delete this._coords[id];
+    let member = this._members.find((member) => member.id === id);
     this._members = this._members.filter((member) => member.id !== id);
+    if (isWindow(member) && member instanceof Window && isWindowManager(this.parent)) {
+      this.parent.canvas.dispatchEvent(new CustomEvent("mingdewindowremove", {
+        detail: {
+          id: member.id,
+          title: member.title,
+        },
+      }));
+    }
   }
   // Move a member to the end of the array, so it gets displayed on "top" of the layer
   move_member_top(id: string) {
@@ -375,7 +428,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     if (parent_id) {
       document.getElementById(parent_id)!.appendChild(this.canvas);
     }
-    this.context = this.canvas.getContext("2d");
+    this.context = this.canvas.getContext("2d", {
+      alpha: false,
+    });
     this.context.imageSmoothingEnabled = false;
     //set up event listeners that dispatch messages
     this.canvas.addEventListener("keydown", (event: KeyboardEvent) => {
@@ -390,6 +445,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.canvas.addEventListener("mouseup", (event: MouseEvent) => {
       this.handle_message(WindowMessage.MouseUp, event);
     });
+    this.canvas.addEventListener("mouseleave", (_event: MouseEvent) => {
+      this.handle_message(WindowMessage.MouseLeave, true);
+    });
     this.canvas.addEventListener("wheel", (event: WheelEvent) => {
       this.handle_message(WindowMessage.Wheel, event);
     });
@@ -398,6 +456,12 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     });
     window.addEventListener("resize", (_event: UIEvent) => {
       this.handle_message(WindowMessage.Resize, [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE]);
+    });
+    this.canvas.addEventListener("mingdewindowadd", (event: WindowChangeEvent) => {
+      this.handle_message(WindowMessage.WindowAdd, event);
+    });
+    this.canvas.addEventListener("mingdewindowremove", (event: WindowChangeEvent) => {
+      this.handle_message(WindowMessage.WindowRemove, event);
     });
     //
     //first render
@@ -416,7 +480,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
   render() {
-    if (CONFIG.DEBUG) {
+    if (CONFIG.DEBUG.RERENDERS) {
       console.debug("Rerendering window manager");
     }
     this.render_view(this.theme);
@@ -433,7 +497,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     }
   }
   handle_message<T extends WindowMessage>(message: T, data: WindowMessageValues[T]) {
-    let window_rerendered: boolean;
+    let window_rerendered: boolean; //this var is a mess
     if ((message === WindowMessage.MouseMove || message === WindowMessage.MouseDown || message === WindowMessage.MouseUp || message === WindowMessage.ContextMenu) && isMouseEvent(data)) {
       //correct coords, create new event
       //(we can use clientX here instead of offsetX because canvas is guaranteed to be entire page)
@@ -463,8 +527,11 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       }
       if (!target_window) return;
       if (message === WindowMessage.MouseDown && this.focused_id !== target_window.id) {
-        //bring that window to the front
         this.focused_id = target_window.id;
+        this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
+          member.handle_message_window(TaskbarMessage.WindowFocusChange, this.focused_id);
+        });
+        //bring that window to the front
         this.layers.find((layer) => layer.members.find((member) => member.id === target_window.id)).move_member_top(target_window.id);
         window_rerendered = true;
       }
@@ -497,16 +564,42 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       } else {
         return;
       }
+    } else if (message === WindowMessage.MouseLeave) {
+      this.windows.forEach(([member, _coords]) => {
+        member.handle_message_window(WindowMessage.MouseLeave, true);
+      });
+      window_rerendered = false;
     } else if (message === WindowMessage.ChangeTheme && isThemes(data)) {
       if (this.theme === data) return;
       this.theme = data;
       this.windows.forEach(([member, _coords]) => member.handle_message_window(message, data));
+      window_rerendered == true;
     } else if (message === WindowMessage.Resize && isCoords(data)) {
       //resize canvas
       this.size = data;
       this.canvas.width = this.size[0];
       this.canvas.height = this.size[1];
       this.windows.forEach(([member, _coords]) => member.handle_message_window(message, data));
+      window_rerendered = true;
+    } else if (message === WindowMessage.WindowAdd && isWindowChangeEvent(data)) {
+      this.focused_id = data.detail.id;
+      this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
+        member.handle_message_window(WindowMessage.WindowAdd, data);
+        member.handle_message_window(TaskbarMessage.WindowFocusChange, this.focused_id);
+      });
+      window_rerendered = true;
+    } else if (message === WindowMessage.WindowRemove && isWindowChangeEvent(data)) {
+      //if focused window closes
+      if (this.focused_id === data.detail.id) {
+        let remaining = this.windows.filter(([member, _coords]) => isWindow(member)).reverse();
+        if (remaining.length > 0) {
+          this.focused_id = remaining[0][0].id;
+        }
+      }
+      this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
+        member.handle_message_window(WindowMessage.WindowRemove, data);
+        member.handle_message_window(TaskbarMessage.WindowFocusChange, this.focused_id);
+      });
       window_rerendered = true;
     }
     //so `window_rerendered = undefined` doesn't trigger this
@@ -517,8 +610,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   }
   handle_request<T extends WindowRequest>(request: T, data: WindowRequestValues[T]) {
     if (!data.layer_name || !data.id) return;
-    if (CONFIG.DEBUG) {
-      console.log(request, data);
+    if (CONFIG.DEBUG.REQUESTS) {
+      console.debug(request, data);
     }
     if (request === WindowRequest.CloseWindow) {
       //only lets window close itself, so we don't really care if trusted
@@ -531,9 +624,25 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     } else if (request === WindowRequest.ChangeCoords && data.trusted && isChangeCoordsValue(data)) {
       let window_parent = this.layers.find((layer) => layer.layer_name === data.layer_name);
       let current_coords: [number, number] = window_parent.coords[data.id];
+      let request_window = window_parent.get_member_by_id(data.id);
+      if (data.stick_bottom) {
+        data.delta_coords[1] = document.body.clientHeight * SCALE - request_window.size[1] - current_coords[1];
+      }
+      if (data.stick_right) {
+        data.delta_coords[0] = document.body.clientWidth * SCALE - request_window.size[0] - current_coords[0];
+      }
       //if coords unchanged, no need to change anything ofc
       if (data.delta_coords[0] === 0 && data.delta_coords[1] === 0) return;
-      window_parent.change_member_coords(data.id, [current_coords[0] + data.delta_coords[0], current_coords[1] + data.delta_coords[1]]);
+      //windows cannot be dragged off the screen
+      const new_coords: [number, number] = [current_coords[0] + data.delta_coords[0], current_coords[1] + data.delta_coords[1]];
+      if (isWindow(request_window) && (new_coords[0] < -request_window.size[0] + 25 * SCALE || new_coords[0] > this.size[0] - 25 * SCALE || new_coords[1] < 0 || new_coords[1] > this.size[1] - TASKBAR_HEIGHT - WINDOW_TOP_HEIGHT)) return;
+      window_parent.change_member_coords(data.id, new_coords);
+    } else if (request === WindowRequest.FocusWindow && data.trusted && isFocusWindowValue(data)) {
+      this.focused_id = data.new_focus;
+      let found_layer = this.layers.find((layer) => layer.members.find((member) => member.id === data.new_focus)).move_member_top(data.new_focus);
+      this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
+        member.handle_message_window(TaskbarMessage.WindowFocusChange, this.focused_id)
+      });
     } else {
       return;
     }

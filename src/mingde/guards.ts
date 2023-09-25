@@ -1,6 +1,6 @@
-import { WindowLike, WindowLikeType, WindowManager } from './wm.js';
+import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
-import { ChangeCursorValue, ChangeCoordsValue, CursorType } from './requests.js';
+import { ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, CursorType } from './requests.js';
 
 //maybe these should all just be inlined instead of in this file?
 
@@ -14,6 +14,10 @@ export function isMouseEvent(event: any): event is MouseEvent {
 
 export function isWheelEvent(event: any): event is WheelEvent {
   return event instanceof WheelEvent;
+}
+
+export function isWindowChangeEvent(event: any): event is WindowChangeEvent {
+  return typeof event?.detail?.id === "string" && typeof event?.detail?.title === "string";
 }
 
 /*
@@ -43,6 +47,11 @@ export function isThemes(maybe_theme: any): maybe_theme is Themes[keyof Themes] 
 
 export function isChangeCursorValue(maybe_change_cursor: any): maybe_change_cursor is ChangeCursorValue {
   if (Object.values(CursorType).includes(maybe_change_cursor?.new_cursor)) return true;
+  return false;
+}
+
+export function isFocusWindowValue(maybe_focus_window: any): maybe_focus_window is FocusWindowValue {
+  if (typeof maybe_focus_window?.new_focus === "string") return true;
   return false;
 }
 

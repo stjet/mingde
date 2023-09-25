@@ -18,7 +18,7 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
   readonly handle_message_window: (message: DesktopBackgroundMessage | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
 
-  private secret;
+  private secret: string;
 
   size: [number, number];
 
@@ -27,7 +27,7 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
   context: CanvasRenderingContext2D;
   layers: Layer<Component<any>>[];
 
-  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret: string) => void;
+  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
   constructor() {
     this.size = [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE];
@@ -44,7 +44,7 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
       self.secret = secret;
     };
     //this is a placeholder, yada yada yada
-    this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret: string) => void 0;
+    this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret?: string) => void 0;
     this.handle_message_window = (message: DesktopBackgroundMessage | WindowMessage, data: any) => {
       //nothing special to do, so just pass it on
       this.handle_message(message, data);
@@ -66,7 +66,7 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
       this.do_rerender = false;
     };
   }
-  render_view(theme: Themes) {
+  render_view(_theme: Themes) {
     //
     //
   }

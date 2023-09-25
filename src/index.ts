@@ -1,9 +1,13 @@
 import { Layer, Window, WindowManager } from './mingde/wm.js';
 import { DesktopBackground } from './mingde/desktop_background.js';
+import { Taskbar } from './mingde/taskbar.js';
+import { TASKBAR_HEIGHT, SCALE } from './mingde/constants.js';
 
 let wm = new WindowManager("canvas-container");
 
 wm.set_layers([new Layer(wm, "desktop"), new Layer(wm, "windows", true), new Layer(wm, "taskbar")]);
+
+wm.layers[2].add_member(new Taskbar(), [0, document.body.clientHeight - TASKBAR_HEIGHT / SCALE]);
 
 wm.layers[0].add_member(new DesktopBackground(), [0, 0]);
 
