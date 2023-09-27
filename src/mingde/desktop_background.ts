@@ -54,6 +54,7 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
     this.render_view_window = (theme: Themes, options?: WindowOptions) => {
       if (!this.do_rerender) return;
       if (isDesktopBackgroundInfo(options?.desktop_background_info)) {
+        this.clear();
         //draw the background
         const bg_info: DesktopBackgroundInfo<DesktopBackgroundTypes> = options.desktop_background_info;
         if (bg_info[0] === DesktopBackgroundTypes.Solid) {
@@ -66,13 +67,17 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
       this.do_rerender = false;
     };
   }
+  clear() {
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
   render_view(_theme: Themes) {
-    //
     //
   }
   handle_message(message: DesktopBackgroundMessage | WindowMessage, data: any): boolean {
     if (message === WindowMessage.Resize && isCoords(data)) {
       this.size = data;
+      this.canvas.width = this.size[0];
+      this.canvas.height = this.size[1];
       this.do_rerender = true;
     }
     return this.do_rerender;

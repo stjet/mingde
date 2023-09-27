@@ -1,6 +1,7 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
 import { ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, CursorType } from './requests.js';
+import { DesktopTime } from './utils.js';
 
 //maybe these should all just be inlined instead of in this file?
 
@@ -38,6 +39,11 @@ export function isDesktopBackgroundInfo(maybe_desktop_bg_info: any): maybe_deskt
       return true;
     }
   }
+  return false;
+}
+
+export function isDesktopTime(maybe_desktop_time: any): maybe_desktop_time is DesktopTime {
+  if (maybe_desktop_time?.hours >= 0 && maybe_desktop_time?.hours < 24 && maybe_desktop_time?.minutes >= 0 && maybe_desktop_time?.minutes < 60) return true;
   return false;
 }
 

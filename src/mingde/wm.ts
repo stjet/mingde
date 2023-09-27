@@ -2,7 +2,7 @@ import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } fr
 import { isCoords, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isMouseEvent, isThemes, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
-import { gen_secret } from './utils.js';
+import { gen_secret, get_time, DesktopTime } from './utils.js';
 
 import { TaskbarMessage } from './taskbar.js';
 import { Button } from './components/button.js';
@@ -82,6 +82,7 @@ export enum WindowLikeType {
 
 export interface WindowOptions {
   desktop_background_info: DesktopBackgroundInfo<DesktopBackgroundTypes>;
+  time: DesktopTime,
 }
 
 export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component<any>> {
@@ -93,6 +94,7 @@ export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component
   layers: Layer<Component<any>>[];
   handle_message(message: MessageType | WindowMessage, data: any): void;
   send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
+  clear(): void; //is this needed?
 }
 
 export class Window<MessageType> implements WindowLike<MessageType> {
@@ -254,6 +256,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
     //this will draw the window, top bar, etc, and also call the arbitary render function
     this.render_view_window = (theme: Themes) => {
       if (!this.do_rerender) return;
+      this.clear();
       //draw window background
       this.context.fillStyle = THEME_INFOS[theme].background;
       this.context.fillRect(0, 0, this.size[0], this.size[1]);
@@ -282,6 +285,9 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       this.context.stroke(window_left_top);
       this.do_rerender = false;
     }
+  } 
+  clear() {
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
   render_view(_theme: Themes) {
     //deliberately left empty, should be overridden by any extending classes
@@ -333,7 +339,7 @@ export class Layer<MemberType extends Member> {
       return;
     }
     if (isWindowManager(this.parent) && isWindowLike(member) && !coords) {
-      console.error("`WindowLike` must provide coords to ");
+      console.error("`WindowLike` must provide coords to layer");
       return;
     }
     this.member_num++;
@@ -420,6 +426,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.options = {
       //default desktop background
       desktop_background_info: [DesktopBackgroundTypes.Solid, "#008080"],
+      time: get_time(),
     };
     this.canvas = document.createElement("CANVAS") as HTMLCanvasElement;
     this.canvas.width = this.size[0];
@@ -487,6 +494,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   }
   render_view(theme: Themes) {
     this.clear();
+    //update time
+    this.options.time = get_time();
     //copied in case windows get deleted
     const windows = this.windows; //.slice()
     for (let i = 0; i < windows.length; i++) {

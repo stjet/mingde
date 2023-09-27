@@ -1,7 +1,7 @@
 import { Component, WindowLike, WindowMessage, WindowOptions, WindowLikeType, WindowMetadata, Layer } from './wm.js';
 import { Themes, THEME_INFOS } from './themes.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
-import { isCoords, isWindowChangeEvent, isMouseEvent } from './guards.js';
+import { isCoords, isDesktopTime, isWindowChangeEvent, isMouseEvent } from './guards.js';
 import { SCALE, TASKBAR_HEIGHT, FONT_SIZES } from './constants.js';
 import { Alignment, Button } from './components/button.js';
 
@@ -9,6 +9,7 @@ const padding: number = 4;
 
 export enum TaskbarMessage {
   WindowFocusChange = "WindowFocusChange", //data is string id
+  ReceiveTimeUpdate = "ReceiveTimeUpdate",
 }
 
 export class Taskbar implements WindowLike<TaskbarMessage> {
@@ -45,7 +46,13 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
       new Layer(this, "permanent"),
       new Layer(this, "window_metadata"),
     ];
-    this.layers[0].add_member(new Button(this, "Start", [padding, padding], 42, (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2, () => {}, true)); 
+    const padding_y: number = (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2;
+    //add start button
+    this.layers[0].add_member(new Button(this, "Start", [padding, padding], 42, padding_y, () => {}, true));
+    //add time button
+    this.layers[0].add_member(new Button(this, "00:00?", [this.size[0] / SCALE - 75 + padding, padding], 75 - padding, padding_y, () => {
+      //todo: click on this updates the time
+    }, undefined, true));
     this.open_windows = [];
     let self = this;
     this.set_secret = (secret: string) => {
@@ -62,12 +69,20 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     //this.render_view isn't supposed to be overriden by anyone, so we can just do most of the stuff there
     this.render_view_window = (theme: Themes, options?: WindowOptions) => {
       if (!this.do_rerender) return;
+      if (isDesktopTime(options?.time)) {
+        //send message
+        this.handle_message(TaskbarMessage.ReceiveTimeUpdate, options.time);
+      }
+      this.clear();
       this.render_view(theme);
       this.do_rerender = false;
     };
   }
   get components(): Component<TaskbarMessage | WindowMessage>[] {
     return this.layers.filter((layer) => !layer.hide).map((layer) => layer.members).flat();
+  }
+  clear() {
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
   render_view(theme: Themes) {
     let theme_info = THEME_INFOS[theme];
@@ -85,11 +100,12 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     let metadata_width: number;
     if (this.open_windows.length < 5) {
       metadata_width = 225;
-    } else if (this.open_windows.length < 9) {
+    } else if (this.open_windows.length < 7) {
       metadata_width = 175;
     } else {
       metadata_width = 125;
     }
+    const padding_y: number = (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2;
     for (let i = 0; i < this.open_windows.length; i++) {
       let open_window: WindowMetadata = this.open_windows[i];
       //add window thingy
@@ -98,7 +114,14 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
       if (open_window.id === this.focused_id) {
         inverted = true;
       }
-      this.layers[1].add_member(new Button(this, open_window.title, [42 + (padding + metadata_width) * i + padding * 2, padding], metadata_width, (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2, inverted ? () => {} : () => {
+      let metadata_x: number = 42 + (padding + metadata_width) * i + padding * 2;
+      if ((metadata_x + metadata_width) * SCALE > this.size[0] - 100 * SCALE) {
+        this.layers[1].add_member(new Button(this, `+${this.open_windows.length - i}`, [metadata_x, padding], 25, padding_y, () => {
+          //placeholder, todo: should do something in the future
+        }, true));
+        break;
+      }
+      this.layers[1].add_member(new Button(this, open_window.title, [metadata_x, padding], metadata_width, padding_y, inverted ? () => {} : () => {
         //open window
         this.send_request(WindowRequest.FocusWindow, {
           new_focus: open_window.id,
@@ -113,6 +136,8 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
   }
   handle_message(message: TaskbarMessage | WindowMessage, data: any): boolean {
     if (message === WindowMessage.Resize && isCoords(data)) {
+      this.size[0] = data[0];
+      this.canvas.width = this.size[0];
       this.send_request(WindowRequest.ChangeCoords, {
         delta_coords: [0, 0], //dummy
         stick_bottom: true,
@@ -137,6 +162,8 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     } else if (message === TaskbarMessage.WindowFocusChange && typeof data === "string") {
       this.focused_id = data;
       this.do_rerender = true;
+    } else if (message === TaskbarMessage.ReceiveTimeUpdate && isDesktopTime(data)) {
+      (this.layers[0].members[1] as Button<TaskbarMessage | WindowMessage>).text = `${String(data.hours).length === 1 ? "0" + data.hours : data.hours}:${String(data.minutes).length === 1 ? "0" + data.minutes : data.minutes}~`;
     }
     return this.do_rerender;
   }

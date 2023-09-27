@@ -18,3 +18,22 @@ export function gen_secret() {
   return uint8_to_hex(gen_random(16));
 }
 
+export interface DesktopTime {
+  hours: number;
+  minutes: number;
+}
+
+export function get_time(utc: boolean = false) {
+  if (utc) {
+    return {
+      hours: new Date().getUTCHours(),
+      minutes: new Date().getUTCMinutes(),
+    };
+  } else {
+    return {
+      hours: new Date().getHours(),
+      minutes: new Date().getMinutes(),
+    };
+  }
+}
+
