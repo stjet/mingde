@@ -1,5 +1,5 @@
 import { Component, Layer, WindowLike, WindowLikeType, WindowMessage, WindowOptions } from './wm.js';
-import { WindowRequest, WindowRequestValue, WindowRequestValues } from './requests.js';
+import { WindowRequest, WindowRequestValues } from './requests.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEME_INFOS } from './themes.js';
 import { SCALE } from './constants.js';
 import { isCoords, isDesktopBackgroundInfo } from './guards.js';

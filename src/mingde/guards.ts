@@ -1,6 +1,6 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
-import { ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, CursorType } from './requests.js';
+import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
 
 //maybe these should all just be inlined instead of in this file?
@@ -63,6 +63,14 @@ export function isFocusWindowValue(maybe_focus_window: any): maybe_focus_window 
 
 export function isChangeCoordsValue(maybe_change_coords: any): maybe_change_coords is ChangeCoordsValue {
   if (Number(maybe_change_coords?.delta_coords?.[0]) !== undefined && Number(maybe_change_coords?.delta_coords?.[1]) !== undefined && maybe_change_coords?.delta_coords.length === 2) return true;
+  return false;
+}
+
+export function isOpenWindowValue(maybe_open_window: any): maybe_open_window is OpenWindowValue {
+  if (maybe_open_window?.coords_offset) {
+    if (!Array.isArray(maybe_open_window.coords_offset) && maybe_open_window.coords_offset.length === 2 && typeof maybe_open_window.coords_offset[0] === "number" && typeof maybe_open_window.coords_offset[1] === "number") return false;
+  }
+  if (typeof maybe_open_window?.name === "string" && typeof maybe_open_window?.open_layer_name === "string" && typeof maybe_open_window?.unique === "boolean") return true;
   return false;
 }
 

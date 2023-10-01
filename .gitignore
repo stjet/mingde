@@ -4,3 +4,4 @@ target
 Cargo.lock
 package-lock.json
 node_modules
+src/todo.txt

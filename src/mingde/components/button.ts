@@ -48,14 +48,27 @@ export class Button<MessageType> implements Component<MessageType> {
     this.parent.context.fillRect(this.coords[0], this.coords[1], this.width, height);
     //draw button text, coords are text's lower left corner
     this.parent.context.fillStyle = theme_info.text_primary;
+    let e_text: string = this.text;
+    if (measured.width > this.width) {
+      e_text = e_text.slice(0, -3);
+      for (let i = 0; i < this.text.length - 3; i++) {
+        let new_measured_width: number = this.parent.context.measureText(e_text.trimEnd()+"....").width; //extra dot for extra space
+        if (new_measured_width < this.width) {
+          break;
+        }
+        e_text = e_text.slice(0, -1);
+      }
+      e_text = e_text.trimEnd()+"...";
+    }
     if (this.alignment === Alignment.Centre) {
-      this.parent.context.fillText(this.text, this.coords[0] + (this.width - measured.width) / 2, height - this.padding_y);
+      this.parent.context.fillText(e_text, this.coords[0] + (this.width - measured.width) / 2, height - this.padding_y);
     } else if (this.alignment === Alignment.Left) {
-      this.parent.context.fillText(this.text, this.coords[0] + this.padding_y, height - this.padding_y);
+      this.parent.context.fillText(e_text, this.coords[0] + this.padding_y, height - this.padding_y);
     } else if (this.alignment === Alignment.Right) {
-      this.parent.context.fillText(this.text, this.coords[0] + this.width - measured.width - this.padding_y, height - this.padding_y);
+      this.parent.context.fillText(e_text, this.coords[0] + this.width - measured.width - this.padding_y, height - this.padding_y);
     }
     //draw button border
+    this.parent.context.lineWidth = 2 * SCALE;
     let border_right_bottom = new Path2D();
     border_right_bottom.moveTo(this.coords[0], this.coords[1] + height); 
     border_right_bottom.lineTo(this.coords[0] + this.width, this.coords[1] + height);
@@ -78,12 +91,14 @@ export class Button<MessageType> implements Component<MessageType> {
     this.parent.context.stroke(window_left_top);
     //this.size = [this.width, height];
   }
-  handle_message(message: MessageType | WindowMessage, data: any) {
+  handle_message(message: MessageType | WindowMessage, data: any): boolean {
     //change colours on click and hover or whatever also
     if (message === WindowMessage.MouseDown) {
       this.click_func();
+      return true;
     }
     //
+    return false;
   }
 }
 

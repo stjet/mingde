@@ -13,13 +13,15 @@ export enum Themes {
 }
 
 export interface ThemeInfo {
-  top: string,
-  text_primary: string,
-  text_top: string,
-  background: string,
-  background_indent: string,
-  border_left_top: string,
-  border_right_bottom: string,
+  top: string;
+  text_primary: string;
+  text_top: string;
+  highlight: string;
+  text_highlight: string;
+  background: string;
+  background_indent: string;
+  border_left_top: string;
+  border_right_bottom: string;
 }
 
 export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
@@ -27,6 +29,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     top: "#000080",
     text_primary: "black",
     text_top: "white",
+    highlight: "blue",
+    text_highlight: "white",
     background: "#c0c0c0",
     background_indent: "#e0e0e0",
     border_left_top: "white",

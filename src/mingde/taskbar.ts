@@ -1,4 +1,4 @@
-import { Component, WindowLike, WindowMessage, WindowOptions, WindowLikeType, WindowMetadata, Layer } from './wm.js';
+import { Component, WindowLike, WindowMessage, WindowOptions, WindowLikeType, WindowMetadata, Layer, TaskbarMessageStandard } from './wm.js';
 import { Themes, THEME_INFOS } from './themes.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
 import { isCoords, isDesktopTime, isWindowChangeEvent, isMouseEvent } from './guards.js';
@@ -8,29 +8,30 @@ import { Alignment, Button } from './components/button.js';
 const padding: number = 4;
 
 export enum TaskbarMessage {
-  WindowFocusChange = "WindowFocusChange", //data is string id
   ReceiveTimeUpdate = "ReceiveTimeUpdate",
+  StartMenuOpen = "StartMenuOpen", //doesn't open start menu, but message is sent when start menu opened
 }
 
-export class Taskbar implements WindowLike<TaskbarMessage> {
+export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStandard> {
   readonly type: string = "window-like";
   readonly sub_type: WindowLikeType = WindowLikeType.Taskbar; 
 
   readonly id: string;
   readonly render_view_window: (theme: Themes, options?: any) => void;
-  readonly handle_message_window: (message: TaskbarMessage | WindowMessage, data: any) => boolean;
+  readonly handle_message_window: (message: TaskbarMessage | TaskbarMessageStandard | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
 
   private secret: string;
   private open_windows: WindowMetadata[];
   private focused_id: string | undefined;
+  private start_menu_open: boolean;
 
   size: [number, number];
 
   do_rerender: boolean;
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
-  layers: Layer<Component<TaskbarMessage | WindowMessage>>[];
+  layers: Layer<Component<TaskbarMessage | TaskbarMessageStandard | WindowMessage>>[];
 
   send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
@@ -48,20 +49,32 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     ];
     const padding_y: number = (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2;
     //add start button
-    this.layers[0].add_member(new Button(this, "Start", [padding, padding], 42, padding_y, () => {}, true));
+    this.layers[0].add_member(new Button(this, "Start", [padding, padding], 42, padding_y, () => {
+      //if self is already inverted, then start menu is already open. another press should close it
+      if (!this.start_menu_open) {
+        //open start menu
+        this.send_request(WindowRequest.OpenWindow, {
+          name: "start-menu",
+          open_layer_name: "",
+          unique: true,
+          coords_offset: [0, 0],
+          sub_size_y: true,
+        }, this.secret);
+        //send message to invert self
+        this.handle_message(TaskbarMessage.StartMenuOpen, true);
+      }
+    }, true));
     //add time button
-    this.layers[0].add_member(new Button(this, "00:00?", [this.size[0] / SCALE - 75 + padding, padding], 75 - padding, padding_y, () => {
-      //todo: click on this updates the time
-    }, undefined, true));
+    this.layers[0].add_member(new Button(this, "00:00?", [this.size[0] / SCALE - 75, padding], 75 - padding, padding_y, () => {}, undefined, true));
     this.open_windows = [];
-    let self = this;
+    this.start_menu_open = false;
     this.set_secret = (secret: string) => {
-      if (self.secret) return;
-      self.secret = secret;
+      if (this.secret) return;
+      this.secret = secret;
     };
     //this is a placeholder, yada yada yada
     this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret?: string) => void 0;
-    this.handle_message_window = (message: TaskbarMessage | WindowMessage, data: any) => {
+    this.handle_message_window = (message: TaskbarMessage | TaskbarMessageStandard | WindowMessage, data: any) => {
       //nothing special to do, so just pass it on
       this.handle_message(message, data);
       return this.do_rerender;
@@ -69,7 +82,8 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     //this.render_view isn't supposed to be overriden by anyone, so we can just do most of the stuff there
     this.render_view_window = (theme: Themes, options?: WindowOptions) => {
       if (!this.do_rerender) return;
-      if (isDesktopTime(options?.time)) {
+      //`&& options?.time` is implied to be true, but still need to tell the compiler that, for strict mode (todo: make type guard do that?)
+      if (isDesktopTime(options?.time) && options?.time) {
         //send message
         this.handle_message(TaskbarMessage.ReceiveTimeUpdate, options.time);
       }
@@ -78,7 +92,7 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
       this.do_rerender = false;
     };
   }
-  get components(): Component<TaskbarMessage | WindowMessage>[] {
+  get components(): Component<TaskbarMessage | TaskbarMessageStandard | WindowMessage>[] {
     return this.layers.filter((layer) => !layer.hide).map((layer) => layer.members).flat();
   }
   clear() {
@@ -88,10 +102,10 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     let theme_info = THEME_INFOS[theme];
     this.context.fillStyle = theme_info.background;
     this.context.fillRect(0, 0, this.size[0], this.size[1]);
+    this.context.lineWidth = 2 * SCALE;
     let top_border: Path2D = new Path2D();
     top_border.moveTo(0, 0);
     top_border.lineTo(this.size[0], 0);
-    this.context.lineWidth = 2 * SCALE;
     this.context.strokeStyle = theme_info.border_left_top;
     this.context.stroke(top_border);
     //reset window metadata and stuff
@@ -105,7 +119,7 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     } else {
       metadata_width = 125;
     }
-    const padding_y: number = (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2;
+    const padding_y: number = (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - (padding * 2)) / 2;
     for (let i = 0; i < this.open_windows.length; i++) {
       let open_window: WindowMetadata = this.open_windows[i];
       //add window thingy
@@ -134,7 +148,7 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
       components[j].render_view(theme);
     }
   }
-  handle_message(message: TaskbarMessage | WindowMessage, data: any): boolean {
+  handle_message(message: TaskbarMessage | TaskbarMessageStandard | WindowMessage, data: any): boolean {
     if (message === WindowMessage.Resize && isCoords(data)) {
       this.size[0] = data[0];
       this.canvas.width = this.size[0];
@@ -159,11 +173,20 @@ export class Taskbar implements WindowLike<TaskbarMessage> {
     } else if (message === WindowMessage.WindowRemove && isWindowChangeEvent(data)) {
       this.open_windows = this.open_windows.filter((open_window) => open_window.id !== data.detail.id);
       this.do_rerender = true;
-    } else if (message === TaskbarMessage.WindowFocusChange && typeof data === "string") {
+    } else if (message === TaskbarMessageStandard.WindowFocusChange && typeof data === "string") {
       this.focused_id = data;
       this.do_rerender = true;
     } else if (message === TaskbarMessage.ReceiveTimeUpdate && isDesktopTime(data)) {
       (this.layers[0].members[1] as Button<TaskbarMessage | WindowMessage>).text = `${String(data.hours).length === 1 ? "0" + data.hours : data.hours}:${String(data.minutes).length === 1 ? "0" + data.minutes : data.minutes}~`;
+    } else if (message === TaskbarMessage.StartMenuOpen) {
+      this.start_menu_open = true;
+      //thing might get out of sync if multiple start menus exist. but only one should exist... so... it's ok
+      (this.layers[0].members[0] as Button<TaskbarMessage | TaskbarMessageStandard>).inverted = true;
+      this.do_rerender = true;
+    } else if (message === TaskbarMessageStandard.StartMenuClose) {
+      this.start_menu_open = false;
+      (this.layers[0].members[0] as Button<TaskbarMessage | TaskbarMessageStandard>).inverted = false;
+      this.do_rerender = true;
     }
     return this.do_rerender;
   }
