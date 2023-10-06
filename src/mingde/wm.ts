@@ -1,9 +1,9 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
 import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isMouseEvent, isThemes, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
-import { CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
+import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
-import { gen_secret, get_time, DesktopTime } from './utils.js';
-import { registry } from './registry.js';
+import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, DesktopTime } from './utils.js';
+import type { Registry } from './registry.js';
 
 import { Button } from './components/button.js';
 import { TextLine } from './components/text_line.js';
@@ -110,25 +110,29 @@ export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component
 export class Window<MessageType> implements WindowLike<MessageType> {
   readonly type: string = "window-like";
   readonly sub_type: WindowLikeType = WindowLikeType.Window;
+  readonly window_type: string;
 
   id: string;
   readonly render_view_window: (theme: Themes) => void;
   readonly handle_message_window: (message: MessageType | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
-  readonly top_components: Component<MessageType | WindowMessage>[];
 
+  private top_components: Component<MessageType | WindowMessage>[];
   private secret: string;
   private move_mode: boolean;
   private move_hover: boolean;
   private move_coords: [number, number];
   private wresize_mode: boolean; //width resize
   private wresize_hover: boolean;
+  private wresize_info: [number, number]; //initial x mouse coord, initial width
   private hresize_mode: boolean; //height resize
   private hresize_hover: boolean;
+  private hresize_info: [number, number]; //initial y mouse coord, initial height
 
   size: [number, number];
   title: string;
 
+  resizable: boolean;
   do_rerender: boolean;
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
@@ -136,15 +140,17 @@ export class Window<MessageType> implements WindowLike<MessageType> {
 
   send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
-  constructor(size: [number, number], title: string) {
+  constructor(size: [number, number], title: string, window_type: string = "") {
     this.size = [size[0] * SCALE, size[1] * SCALE];
     this.title = title;
+    this.window_type = window_type;
     this.move_mode = false;
     this.move_hover = false;
     this.wresize_mode = false;
     this.wresize_hover = false;
     this.hresize_mode = false;
     this.hresize_hover = false;
+    this.resizable = true;
     //set to true for first render
     this.do_rerender = true;
     this.canvas = document.createElement("CANVAS") as HTMLCanvasElement;
@@ -159,16 +165,20 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       if (this.secret) return;
       this.secret = secret;
     };
+    const set_top_components = () => {
+      this.top_components = [
+        new Button<MessageType | WindowMessage>(this, "x", [this.size[0] / SCALE - 4 - 17, WINDOW_TOP_HEIGHT / SCALE - 4 - 17], 17, 1, () => {
+          this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
+        }),
+        new TextLine<MessageType | WindowMessage>(this, this.title, [4, WINDOW_TOP_HEIGHT / SCALE - (WINDOW_TOP_HEIGHT - FONT_SIZES.TOP) / SCALE / 2], "text_top", "TOP", this.size[0] - (17 + 6) * SCALE, true),
+      ];
+    }
     //Window top bar components, currently window title and close button
-    this.top_components = [
-      new Button<MessageType | WindowMessage>(this, "x", [this.size[0] / SCALE - 4 - 17, WINDOW_TOP_HEIGHT / SCALE - 4 - 17], 17, 1, () => {
-        this.send_request(WindowRequest.CloseWindow, {}); // this.secret);
-      }),
-      new TextLine<MessageType | WindowMessage>(this, this.title, [4, WINDOW_TOP_HEIGHT / SCALE - (WINDOW_TOP_HEIGHT - FONT_SIZES["TOP"]) / SCALE / 2], "text_top", "TOP", this.size[0] - (17 + 6) * SCALE, true),
-    ];
+    set_top_components();
     //intercept requests, so top bar close button, dragging, etc, can't be overriden
     //bug: where move mode still happens when dragging window near bottom and releasing on taskbar?
     this.handle_message_window = (message: WindowMessage, data: any) => {
+      const win_margin: number = 9 * SCALE;
       let propogate_down = true;
       if (message === WindowMessage.MouseDown) {
         if (isMouseEvent(data)) {
@@ -183,10 +193,17 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               this.move_mode = true;
               this.move_coords = [data.screenX, data.screenY];
             }
+          } else if (data.clientY > this.size[1] - win_margin && this.resizable) {
+            this.hresize_mode = true;
+            this.hresize_info = [data.screenY, this.size[1]];
+          } else if (data.clientX > this.size[0] - win_margin && this.resizable) {
+            this.wresize_mode = true;
+            this.wresize_info = [data.screenX, this.size[0]];
           }
         }
       } else if (message === WindowMessage.MouseMove) {
         if (isMouseEvent(data)) {
+          const is_default_cursor: boolean = interpret_me_buttons(data.buttons)[0] === CursorType.Default;
           if (data.clientY < WINDOW_TOP_HEIGHT) {
             propogate_down = false;
             let clickable_found = this.top_components.filter((c) => {
@@ -194,7 +211,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             }).some((c) => c.clickable);
             if (!clickable_found) {
               //no need to send more requests if already correct cursor
-              if (!this.move_hover) {
+              if (!this.move_hover && is_default_cursor) {
                 this.move_hover = true;
                 this.send_request(WindowRequest.ChangeCursor, {
                   new_cursor: CursorType.Move,
@@ -221,22 +238,21 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               }, this.secret);
             }
             //if on right or bottom margins of the window
-            const win_margin: number = 9 * SCALE;
             if (data.clientY > this.size[1] - win_margin) {
-              if (!this.hresize_hover) {
+              if (!this.hresize_hover && is_default_cursor && this.resizable) {
                 this.hresize_hover = true;
                 this.send_request(WindowRequest.ChangeCursor, {
                   new_cursor: CursorType.RowResize,
                 }, this.secret);
               }
-            } else if (data.clientX < win_margin || data.clientX > this.size[0] - win_margin) {
-              if (!this.wresize_hover) {
+            } else if (data.clientX > this.size[0] - win_margin) {
+              if (!this.wresize_hover && is_default_cursor && this.resizable) {
                 this.wresize_hover = true;
                 this.send_request(WindowRequest.ChangeCursor, {
                   new_cursor: CursorType.ColResize,
                 }, this.secret);
               }
-            } else if (this.wresize_hover || this.hresize_hover) {
+            } else if ((this.wresize_hover || this.hresize_hover) && (!this.wresize_mode && !this.hresize_mode)) {
               this.wresize_hover = false;
               this.hresize_hover = false;
               this.send_request(WindowRequest.ChangeCursor, {
@@ -249,6 +265,21 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               delta_coords: [data.screenX - this.move_coords[0], data.screenY - this.move_coords[1]],
             }, this.secret);
             this.move_coords = [data.screenX, data.screenY];
+          } else if (this.wresize_mode) {
+            this.size[0] = this.wresize_info[1] + (data.screenX - this.wresize_info[0]);
+            if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+              this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+            }
+            this.canvas.width = this.size[0];
+            set_top_components();
+            this.do_rerender = true;
+          } else if (this.hresize_mode) {
+            this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
+            if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+              this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+            }
+            this.canvas.height = this.size[1];
+            this.do_rerender = true;
           }
         }
       } else if (message === WindowMessage.MouseUp) {
@@ -259,6 +290,12 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               new_cursor: CursorType.Default,
             }, this.secret);
           }
+        } else if (this.wresize_mode || this.hresize_mode) {
+          this.wresize_mode = false;
+          this.hresize_mode = false;
+          this.send_request(WindowRequest.ChangeCursor, {
+            new_cursor: CursorType.Default,
+          }, this.secret);
         }
       } else if (message === WindowMessage.MouseLeave) {
         propogate_down = false;
@@ -267,9 +304,9 @@ export class Window<MessageType> implements WindowLike<MessageType> {
           this.send_request(WindowRequest.ChangeCursor, {
             new_cursor: CursorType.Default,
           }, this.secret);
-        } else if (this.wresize_hover || this.hresize_hover) {
-          this.wresize_hover = false;
-          this.hresize_hover = false;
+        } else if (this.wresize_mode || this.hresize_mode) {
+          this.wresize_mode = false;
+          this.hresize_mode = false;
           this.send_request(WindowRequest.ChangeCursor, {
             new_cursor: CursorType.Default,
           }, this.secret);
@@ -287,6 +324,21 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             delta_coords: [data.screenX - this.move_coords[0], data.screenY - this.move_coords[1]],
           }, this.secret);
           this.move_coords = [data.screenX, data.screenY];
+        } else if (this.wresize_mode) {
+          this.size[0] = this.wresize_info[1] + (data.screenX - this.wresize_info[0]);
+          if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+            this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+          }
+          this.canvas.width = this.size[0];
+          set_top_components();
+          this.do_rerender = true;
+        } else if (this.hresize_mode) {
+          this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
+          if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+            this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+          }
+          this.canvas.height = this.size[1];
+          this.do_rerender = true;
         } else if (this.wresize_hover || this.hresize_hover) {
           this.wresize_hover = false;
           this.hresize_hover = false;
@@ -297,6 +349,12 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       } else if (message === WindowMessage.MouseUpOutside) {
         if (this.move_mode) {
           this.move_mode = false;
+          this.send_request(WindowRequest.ChangeCursor, {
+            new_cursor: CursorType.Default,
+          }, this.secret);
+        } else if (this.wresize_mode || this.hresize_mode) {
+          this.wresize_mode = false;
+          this.hresize_mode = false;
           this.send_request(WindowRequest.ChangeCursor, {
             new_cursor: CursorType.Default,
           }, this.secret);
@@ -339,7 +397,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       this.context.stroke(window_left_top);
       this.do_rerender = false;
     }
-  } 
+  }
   clear() {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
@@ -466,6 +524,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   readonly type = "window-manager";
   id = "_window-manager"; //special id, shouldn't really have a use
 
+  private total_renders: number; //count of the total amount of renders done
+
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
   size: [number, number];
@@ -474,8 +534,10 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   theme: Themes;
   options: WindowOptions;
   render_stop: boolean;
+  registry: Registry;
 
-  constructor(parent_id: string = "", render_stop: boolean = false) {
+  constructor(parent_id: string = "", registry: Registry, render_stop: boolean = false) {
+    this.total_renders = 0;
     this.size = [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE];
     this.layers = [];
     this.theme = Themes.Standard;
@@ -484,6 +546,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       desktop_background_info: [DesktopBackgroundTypes.Solid, "#008080"],
       time: get_time(),
     };
+    this.registry = registry;
     this.canvas = document.createElement("CANVAS") as HTMLCanvasElement;
     this.canvas.width = this.size[0];
     this.canvas.height = this.size[1];
@@ -545,8 +608,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   }
   render() {
     if (this.render_stop) return;
+    this.total_renders++;
     if (CONFIG.LOGS.RERENDERS) {
-      console.log("Rerendering window manager");
+      console.log("Rerendering window manager", this.total_renders);
     }
     this.render_view(this.theme);
   }
@@ -571,6 +635,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       const mod = new MouseEvent(data.type, {
         clientX: data.clientX * SCALE,
         clientY: data.clientY * SCALE,
+        buttons: create_me_buttons((this.canvas.style.cursor || "default") as CursorType),
       });
       let target: [WindowLike<any>, [number, number]] | undefined = this.windows.reverse().find(([member, coords]) => {
         return mod.clientX > coords[0] && mod.clientY > coords[1] && mod.clientX < (coords[0] + member.size[0]) && mod.clientY < (coords[1] + member.size[1]);
@@ -578,14 +643,17 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       let target_window: WindowLike<any> | undefined = target?.[0];
       let target_coords: [number, number] | undefined = target?.[1];
       if (this.canvas.style.cursor !== CursorType.Default && message === WindowMessage.MouseMove) {
-        //does MouseMoveOutside even need a mouse event? perhaps this can be removed, and a bool can be sent
+        //yes, mouse move outside needs the coords for window resizing and moving
         const mod_screen_only = new MouseEvent("mousemove", {
           screenX: mod.clientX,
           screenY: mod.clientY,
+          buttons: mod.buttons,
         });
-        this.windows.filter(([member, _coords]) => member.id !== target_window?.id).forEach(([member, _coords]) => {
-          //this is just for mousemove outside, we can guarantee they will only change mouse cursor state, and not require a rerender
-          member.handle_message_window(WindowMessage.MouseMoveOutside, mod_screen_only);
+        window_rerendered = this.windows.filter(([member, _coords]) => member.id !== target_window?.id).some(([member, _coords]) => {
+          //may require a rerender, because of window size changes
+          //MouseMoveOutside is not given to the normal/arbitrary message handler,
+          //so we can reasonably say that it will only be used for window size changes
+          return member.handle_message_window(WindowMessage.MouseMoveOutside, mod_screen_only);
         });
       } else if (this.canvas.style.cursor !== CursorType.Default && message === WindowMessage.MouseUp) {
         window_rerendered = this.windows.filter(([member, _coords]) => member.id !== target_window?.id).map(([member, _coords]) => {
@@ -613,6 +681,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         screenY: mod.clientY,
         clientX: mod.clientX - target_coords[0],
         clientY: mod.clientY - target_coords[1],
+        buttons: mod.buttons,
         //button: this.focused_id === target_window.id ? 1 : 0, //send button as 1 if mouseevent window is focused, 0 otherwise
       });
       //snapshot whether a start menu existed before (we will assume that max of one start menu, ever)
@@ -739,19 +808,30 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       });
     } else if (request === WindowRequest.OpenWindow && data.trusted && isOpenWindowValue(data)) {
       //todo: permission system
-      let r_info = registry[data.name];
+      let r_info = this.registry[data.name];
       if (r_info) {
         if (data.open_layer_name === "") {
           data.open_layer_name = data.layer_name; //same layer as request sender then, if blank
         }
         let found_layer = this.layers.find((layer) => layer.layer_name === data.open_layer_name);
         if (found_layer) {
-          let start_coords: [number, number] = [200, 200]; //arbitrary
           if (data.unique) {
             let found_same_instance = found_layer.members.find((member) => member instanceof r_info[0]);
             if (found_same_instance) return;
           }
-          let member = new (r_info[0])(...r_info[1]);
+          let member;
+          if (r_info[1].length === 0 && data.args) {
+            try {
+              member = new (r_info[0])(...data.args);
+            } catch (e) {
+              console.log("a")
+              console.error(e);
+              return;
+            }
+          } else {
+            member = new (r_info[0])(...r_info[1]);
+          }
+          let start_coords: [number, number] = [(this.size[0] - member.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - member.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
           if (data.coords_offset) {
             let found_opener: [number, number] = found_layer.coords[data.id];
             start_coords = [found_opener[0] / SCALE + data.coords_offset[0], found_opener[1] / SCALE + data.coords_offset[1]];

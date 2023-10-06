@@ -2,7 +2,7 @@ import { Component, WindowLikeType, WindowLike, WindowOptions, WindowMessage, La
 import { isMouseEvent } from './guards.js';
 import { Themes, THEME_INFOS } from './themes.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
-import { CONFIG, START_MENU_VWIDTH, START_MENU_SIZE, SCALE, FONT_SIZES } from './constants.js';
+import { CONFIG, START_MENU_VWIDTH, START_MENU_SIZE, SCALE, FONT_SIZES, VERSION } from './constants.js';
 
 import { HighlightButton } from './components/highlight_button.js';
 import { Icon } from './components/icon.js';
@@ -61,8 +61,15 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     const padding_y: number = (height - FONT_SIZES.BUTTON / SCALE) / 2;
     //add about
     this.layers[1].add_member(new HighlightButton(this, "About", [(padding + START_MENU_VWIDTH) / SCALE, 0], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
-      //placeholder
-      //
+      //open alert box that says version number
+      this.send_request(WindowRequest.OpenWindow, {
+        name: "alert-box",
+        open_layer_name: "windows",
+        unique: false,
+        sub_size_y: true,
+        //args: ["About Mingde", `Version: ${VERSION} a ushfjadsklfajdsfksdaf;9382473247324372847832784732743284732434327847324!a as \n asf`],
+        args: ["About Mingde", `Version: ${VERSION} \n Mingde is a "desktop environment" running in HTML canvas. Written in typescript, with no external dependencies.`],
+      }, this.secret);
     }));
     //add hidden layers for the categories
     for (let i = 0; i < Object.values(ApplicationCategories).length; i++) {
@@ -80,6 +87,7 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     }));
     this.layers[1].add_member(new HighlightButton(this, "Exit", [(padding + START_MENU_VWIDTH) / SCALE, height * (Object.values(ApplicationCategories).length + 2)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
       //placeholder
+      //exit should close the page or something?
       //
     }));
     //draw mingde icon n vertical bar thing (add to first layer)

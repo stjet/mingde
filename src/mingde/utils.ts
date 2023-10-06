@@ -1,3 +1,5 @@
+import { CursorType } from './requests.js';
+
 function gen_random(bytes_num: number) {
   let uint8 = new Uint8Array(bytes_num);
   (crypto || window.crypto).getRandomValues(uint8);
@@ -35,5 +37,30 @@ export function get_time(utc: boolean = false) {
       minutes: new Date().getMinutes(),
     };
   }
+}
+
+//ideas for information to include: possibly include data on whether window is focused?
+//create the "buttons" property of mouse events that we set
+export function create_me_buttons(cursor_type: CursorType): number {
+  return Number(String(Object.values(CursorType).indexOf(cursor_type))+"000");
+}
+
+//interpret the "buttons" property of mouse events that we set
+export function interpret_me_buttons(buttons: number): [CursorType] {
+  //pad to 4 digits
+  let b_string: string = "0".repeat(4-String(buttons).length)+String(buttons);
+  //first digit is cursortype
+  let cursor_type: CursorType;
+  if (Number(b_string[0]) < Object.keys(CursorType).length) {
+    cursor_type = CursorType[Object.keys(CursorType)[Number(b_string[0])]];
+  } else {
+    cursor_type = CursorType.Default;
+  }
+  //
+  return [cursor_type];
+}
+
+export function random_int(lower: number, upper: number): number {
+  return lower + Math.floor(Math.random() * (upper - lower));
 }
 

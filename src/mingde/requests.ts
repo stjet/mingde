@@ -21,6 +21,7 @@ export interface OpenWindowValue extends WindowRequestValue {
   coords_offset?: [number, number]; //optionally, specify the new windowlike's coords, relative to the windowlike that opened it
   sub_size_x?: boolean,
   sub_size_y?: boolean,
+  args?: any[],
 }
 
 export interface FocusWindowValue extends WindowRequestValue {

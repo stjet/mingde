@@ -60,12 +60,13 @@ export class Button<MessageType> implements Component<MessageType> {
       }
       e_text = e_text.trimEnd()+"...";
     }
+    this.parent.context.textBaseline = "bottom";
     if (this.alignment === Alignment.Centre) {
-      this.parent.context.fillText(e_text, this.coords[0] + (this.width - measured.width) / 2, height - this.padding_y);
+      this.parent.context.fillText(e_text, this.coords[0] + (this.width - measured.width) / 2, this.coords[1] + height - this.padding_y);
     } else if (this.alignment === Alignment.Left) {
-      this.parent.context.fillText(e_text, this.coords[0] + this.padding_y, height - this.padding_y);
+      this.parent.context.fillText(e_text, this.coords[0] + this.padding_y, this.coords[1] + height - this.padding_y);
     } else if (this.alignment === Alignment.Right) {
-      this.parent.context.fillText(e_text, this.coords[0] + this.width - measured.width - this.padding_y, height - this.padding_y);
+      this.parent.context.fillText(e_text, this.coords[0] + this.width - measured.width - this.padding_y, this.coords[1] + height - this.padding_y);
     }
     //draw button border
     this.parent.context.lineWidth = 2 * SCALE;

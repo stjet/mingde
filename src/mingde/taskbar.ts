@@ -130,7 +130,7 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
       }
       let metadata_x: number = 42 + (padding + metadata_width) * i + padding * 2;
       if ((metadata_x + metadata_width) * SCALE > this.size[0] - 100 * SCALE) {
-        this.layers[1].add_member(new Button(this, `+${this.open_windows.length - i}`, [metadata_x, padding], 25, padding_y, () => {
+        this.layers[1].add_member(new Button(this, `+${this.open_windows.length - i}`, [metadata_x, padding], 28, padding_y, () => {
           //placeholder, todo: should do something in the future
         }, true));
         break;
