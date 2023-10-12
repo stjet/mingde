@@ -1,5 +1,5 @@
 import { Component, Window, WindowMessage, Layer } from '../wm.js';
-import { Themes } from '../themes.js';
+import type { Themes } from '../themes.js';
 import { SCALE, WINDOW_TOP_HEIGHT, FONT_SIZES } from '../constants.js';
 import { WindowRequest } from '../requests.js';
 import { isMouseEvent } from '../guards.js';

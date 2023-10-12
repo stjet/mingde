@@ -4,6 +4,7 @@ import { WindowRequest, WindowRequestValues } from './requests.js';
 import { isCoords, isDesktopTime, isWindowChangeEvent, isMouseEvent } from './guards.js';
 import { SCALE, TASKBAR_HEIGHT, FONT_SIZES } from './constants.js';
 import { Alignment, Button } from './components/button.js';
+import type { Registry } from './registry.js';
 
 const padding: number = 4;
 
@@ -21,6 +22,8 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
   readonly handle_message_window: (message: TaskbarMessage | TaskbarMessageStandard | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
 
+  private registry: Registry;
+
   private secret: string;
   private open_windows: WindowMetadata[];
   private focused_id: string | undefined;
@@ -35,8 +38,9 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
 
   send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
-  constructor() {
+  constructor(registry: Registry) {
     this.size = [document.body.clientWidth * SCALE, TASKBAR_HEIGHT];
+    this.registry = registry;
     //set to true for first render
     this.do_rerender = true;
     this.canvas = document.createElement("canvas");
@@ -59,6 +63,7 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
           unique: true,
           coords_offset: [0, 0],
           sub_size_y: true,
+          args: [this.registry],
         }, this.secret);
         //send message to invert self
         this.handle_message(TaskbarMessage.StartMenuOpen, true);
@@ -172,6 +177,8 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
       this.do_rerender = true;
     } else if (message === WindowMessage.WindowRemove && isWindowChangeEvent(data)) {
       this.open_windows = this.open_windows.filter((open_window) => open_window.id !== data.detail.id);
+      this.do_rerender = true;
+    } else if (message === WindowMessage.ChangeTheme) {
       this.do_rerender = true;
     } else if (message === TaskbarMessageStandard.WindowFocusChange && typeof data === "string") {
       this.focused_id = data;

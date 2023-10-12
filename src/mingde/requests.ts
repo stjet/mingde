@@ -1,3 +1,5 @@
+import type { Themes } from './themes.js';
+
 //requests are messages but propogate up from windowlike to wm
 export enum WindowRequest {
   CloseWindow = "CloseWindow", //or windowlike
@@ -5,6 +7,7 @@ export enum WindowRequest {
   FocusWindow = "FocusWindow",
   ChangeCursor = "ChangeCursor",
   ChangeCoords = "ChangeCoords",
+  ChangeTheme = "ChangeTheme", //also a WindowMessage called this, that won't be confusing at all...
 }
 
 //should be extended if requests need additional values, eg, OpenWindow request needs to know what window to open
@@ -46,11 +49,16 @@ export interface ChangeCoordsValue extends WindowRequestValue {
   stick_right?: boolean;
 }
 
+export interface ChangeThemeValue extends WindowRequestValue {
+  new_theme: Themes;
+}
+
 export interface WindowRequestValues {
   [WindowRequest.CloseWindow]: WindowRequestValue,
   [WindowRequest.OpenWindow]: OpenWindowValue,
   [WindowRequest.FocusWindow]: FocusWindowValue,
   [WindowRequest.ChangeCursor]: ChangeCursorValue,
   [WindowRequest.ChangeCoords]: ChangeCoordsValue,
+  [WindowRequest.ChangeTheme]: ChangeThemeValue,
 }
 

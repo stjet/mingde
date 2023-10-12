@@ -15,21 +15,23 @@ export class TextLine<MessageType> implements Component<MessageType> {
   font_size: keyof typeof FONT_SIZES;
   max_width: number | undefined;
   ellipsis: boolean;
+  bold: boolean;
 
-  constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], color: keyof ThemeInfo, font_size: keyof typeof FONT_SIZES, max_width: number | undefined, ellipsis: boolean = false) {
+  constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], color: keyof ThemeInfo, font_size: keyof typeof FONT_SIZES, max_width: number | undefined, ellipsis: boolean = false, bold: boolean = true) {
     this.parent = parent;
     this.text = text;
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
     this.color = color;
     this.font_size = font_size;
-    this.max_width = max_width;
+    this.max_width = max_width * SCALE;
     this.ellipsis = ellipsis; //if length more than max_width, ellipsis
+    this.bold = bold;
     //placeholder until width, height calculated
     this.size = [0, 0];
   }
   render_view(theme: Themes) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
-    this.parent.context.font = `bold ${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
+    this.parent.context.font = `${this.bold ? "bold " : ""}${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
     this.parent.context.fillStyle = theme_info[this.color];
     if (this.max_width && this.ellipsis) {
       let measured_width: number = this.parent.context.measureText(this.text).width;

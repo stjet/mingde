@@ -80,19 +80,19 @@ export class Button<MessageType> implements Component<MessageType> {
       this.parent.context.strokeStyle = THEME_INFOS[theme].border_right_bottom;
     }
     this.parent.context.stroke(border_right_bottom);
-    let window_left_top = new Path2D();
-    window_left_top.moveTo(this.coords[0], this.coords[1] + height);
-    window_left_top.lineTo(this.coords[0], this.coords[1]);
-    window_left_top.lineTo(this.coords[0] + this.width, this.coords[1]);
+    let border_left_top = new Path2D();
+    border_left_top.moveTo(this.coords[0], this.coords[1] + height);
+    border_left_top.lineTo(this.coords[0], this.coords[1]);
+    border_left_top.lineTo(this.coords[0] + this.width, this.coords[1]);
     if (this.inverted) {
       this.parent.context.strokeStyle = THEME_INFOS[theme].border_right_bottom;
     } else {
       this.parent.context.strokeStyle = THEME_INFOS[theme].border_left_top;
     }
-    this.parent.context.stroke(window_left_top);
+    this.parent.context.stroke(border_left_top);
     //this.size = [this.width, height];
   }
-  handle_message(message: MessageType | WindowMessage, data: any): boolean {
+  handle_message(message: MessageType | WindowMessage, _data: any): boolean {
     //change colours on click and hover or whatever also
     if (message === WindowMessage.MouseDown) {
       this.click_func();

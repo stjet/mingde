@@ -1,6 +1,6 @@
 import { Component, Layer, WindowLike, WindowLikeType, WindowMessage, WindowOptions } from './wm.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
-import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEME_INFOS } from './themes.js';
+import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
 import { SCALE } from './constants.js';
 import { isCoords, isDesktopBackgroundInfo } from './guards.js';
 
@@ -53,7 +53,7 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
     //this.render_view isn't supposed to be overriden by anyone, so we can just do most of the stuff there
     this.render_view_window = (theme: Themes, options?: WindowOptions) => {
       if (!this.do_rerender) return;
-      if (isDesktopBackgroundInfo(options?.desktop_background_info)) {
+      if (isDesktopBackgroundInfo(options?.desktop_background_info) && options) {
         this.clear();
         //draw the background
         const bg_info: DesktopBackgroundInfo<DesktopBackgroundTypes> = options.desktop_background_info;

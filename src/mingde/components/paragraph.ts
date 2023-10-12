@@ -27,8 +27,9 @@ export class Paragraph<MessageType> implements Component<MessageType> {
     this.font_size = font_size;
     this.line_width = line_width * SCALE;
     this.line_height = line_height;
+    this.lines = this.calculate_lines();
   }
-  calculate_lines() {
+  calculate_lines(): string[] {
     let lines: string[] = [];
     let line: string = "";
     this.parent.context.font = `${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
@@ -69,15 +70,15 @@ export class Paragraph<MessageType> implements Component<MessageType> {
       }
     }
     if (line) lines.push(line);
-    this.lines = lines;
+    return lines;
   }
   render_view(theme: Themes) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
     this.parent.context.font = `${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
     this.parent.context.fillStyle = theme_info[this.color];
     //if needed, calculate lines
-    if (!this.lines || this.cached_theme !== theme) {
-      this.calculate_lines();
+    if (this.cached_theme !== theme) {
+      this.lines = this.calculate_lines();
       this.cached_theme = theme;
     }
     let line_height: number = typeof this.line_height === "number" ? this.line_height : FONT_SIZES[this.font_size] + 2;

@@ -1,6 +1,6 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
-import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
-import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, CursorType } from './requests.js';
+import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEMES_LIST } from './themes.js';
+import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
 
 //maybe these should all just be inlined instead of in this file?
@@ -71,6 +71,11 @@ export function isOpenWindowValue(maybe_open_window: any): maybe_open_window is 
     if (!Array.isArray(maybe_open_window.coords_offset) && maybe_open_window.coords_offset.length === 2 && typeof maybe_open_window.coords_offset[0] === "number" && typeof maybe_open_window.coords_offset[1] === "number") return false;
   }
   if (typeof maybe_open_window?.name === "string" && typeof maybe_open_window?.open_layer_name === "string" && typeof maybe_open_window?.unique === "boolean") return true;
+  return false;
+}
+
+export function isChangeThemeValue(maybe_change_theme: any): maybe_change_theme is ChangeThemeValue {
+  if (THEMES_LIST.includes(maybe_change_theme?.new_theme)) return true;
   return false;
 }
 

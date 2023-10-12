@@ -1,5 +1,5 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isMouseEvent, isThemes, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isMouseEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, DesktopTime } from './utils.js';
@@ -165,16 +165,16 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       if (this.secret) return;
       this.secret = secret;
     };
-    const set_top_components = () => {
-      this.top_components = [
+    const create_top_components = (): Component<MessageType | WindowMessage>[] => {
+      return [
         new Button<MessageType | WindowMessage>(this, "x", [this.size[0] / SCALE - 4 - 17, WINDOW_TOP_HEIGHT / SCALE - 4 - 17], 17, 1, () => {
           this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
         }),
-        new TextLine<MessageType | WindowMessage>(this, this.title, [4, WINDOW_TOP_HEIGHT / SCALE - (WINDOW_TOP_HEIGHT - FONT_SIZES.TOP) / SCALE / 2], "text_top", "TOP", this.size[0] - (17 + 6) * SCALE, true),
+        new TextLine<MessageType | WindowMessage>(this, this.title, [4, WINDOW_TOP_HEIGHT / SCALE - (WINDOW_TOP_HEIGHT - FONT_SIZES.TOP) / SCALE / 2], "text_top", "TOP", this.size[0] / SCALE - 17 - 6, true),
       ];
     }
     //Window top bar components, currently window title and close button
-    set_top_components();
+    this.top_components = create_top_components();
     //intercept requests, so top bar close button, dragging, etc, can't be overriden
     //bug: where move mode still happens when dragging window near bottom and releasing on taskbar?
     this.handle_message_window = (message: WindowMessage, data: any) => {
@@ -271,7 +271,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               this.size[0] = WINDOW_MIN_DIMENSIONS[0];
             }
             this.canvas.width = this.size[0];
-            set_top_components();
+            this.top_components = create_top_components();
             this.do_rerender = true;
           } else if (this.hresize_mode) {
             this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
@@ -330,7 +330,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             this.size[0] = WINDOW_MIN_DIMENSIONS[0];
           }
           this.canvas.width = this.size[0];
-          set_top_components();
+          this.top_components = create_top_components();
           this.do_rerender = true;
         } else if (this.hresize_mode) {
           this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
@@ -359,6 +359,8 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             new_cursor: CursorType.Default,
           }, this.secret);
         }
+      } else if (message === WindowMessage.ChangeTheme) {
+        this.do_rerender = true;
       }
       if (propogate_down) {
         this.handle_message(message, data);
@@ -536,11 +538,11 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   render_stop: boolean;
   registry: Registry;
 
-  constructor(parent_id: string = "", registry: Registry, render_stop: boolean = false) {
+  constructor(parent_id: string = "", registry: Registry, render_stop: boolean = false, theme: Themes = Themes.Standard) {
     this.total_renders = 0;
     this.size = [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE];
     this.layers = [];
-    this.theme = Themes.Standard;
+    this.theme = theme;
     this.options = {
       //default desktop background
       desktop_background_info: [DesktopBackgroundTypes.Solid, "#008080"],
@@ -723,11 +725,6 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         member.handle_message_window(WindowMessage.MouseLeave, true);
       });
       window_rerendered = false;
-    } else if (message === WindowMessage.ChangeTheme && isThemes(data)) {
-      if (this.theme === data) return;
-      this.theme = data;
-      this.windows.forEach(([member, _coords]) => member.handle_message_window(message, data));
-      window_rerendered = true;
     } else if (message === WindowMessage.Resize && isCoords(data)) {
       //resize canvas
       this.size = data;
@@ -765,7 +762,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   handle_request<T extends WindowRequest>(request: T, data: WindowRequestValues[T]) {
     if (!data.layer_name || !data.id) return;
     if (CONFIG.DEBUG.REQUESTS) {
-      console.debug(request, data);
+      console.debug(request, data, request === WindowRequest.ChangeTheme);
     }
     if (request === WindowRequest.CloseWindow) {
       //only lets window close itself, so we don't really care if trusted
@@ -820,16 +817,15 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
             if (found_same_instance) return;
           }
           let member;
-          if (r_info[1].length === 0 && data.args) {
-            try {
+          try {
+            if (r_info[1].length === 0 && data.args) {
               member = new (r_info[0])(...data.args);
-            } catch (e) {
-              console.log("a")
-              console.error(e);
-              return;
+            } else {
+              member = new (r_info[0])(...r_info[1]);
             }
-          } else {
-            member = new (r_info[0])(...r_info[1]);
+          } catch (e) {
+            console.error(e);
+            return;
           }
           let start_coords: [number, number] = [(this.size[0] - member.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - member.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
           if (data.coords_offset) {
@@ -853,6 +849,12 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       } else {
         return;
       }
+    } else if (request === WindowRequest.ChangeTheme && isChangeThemeValue(data)) {
+      if (this.theme === data.new_theme) return;
+      //permission system, possibly also require it to be focused window
+      //
+      this.theme = data.new_theme;
+      this.windows.forEach(([member, _coords]) => member.handle_message_window(WindowMessage.ChangeTheme, data.new_theme));
     } else {
       return;
     }

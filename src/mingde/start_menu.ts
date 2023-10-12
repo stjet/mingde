@@ -3,6 +3,7 @@ import { isMouseEvent } from './guards.js';
 import { Themes, THEME_INFOS } from './themes.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
 import { CONFIG, START_MENU_VWIDTH, START_MENU_SIZE, SCALE, FONT_SIZES, VERSION } from './constants.js';
+import type { Registry } from './registry.js';
 
 import { HighlightButton } from './components/highlight_button.js';
 import { Icon } from './components/icon.js';
@@ -22,7 +23,8 @@ export enum ApplicationCategories {
 }
 
 export enum StartMenuMessage {
-  //
+  BackCategories,
+  ToCategory,
 }
 
 export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessageStandard> {
@@ -33,6 +35,8 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
   readonly render_view_window: (theme: Themes, options?: any) => void;
   readonly handle_message_window: (message: StartMenuMessage | StartMenuMessageStandard | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
+
+  private registry: Registry;
 
   private secret: string;
 
@@ -45,8 +49,9 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
 
   send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
-  constructor() {
+  constructor(registry: Registry) {
     this.size = START_MENU_SIZE;
+    this.registry = registry;
     //set to true for first render
     this.do_rerender = true;
     this.canvas = document.createElement("canvas");
@@ -74,10 +79,26 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     //add hidden layers for the categories
     for (let i = 0; i < Object.values(ApplicationCategories).length; i++) {
       this.layers.push(new Layer(this, Object.values(ApplicationCategories)[i], false, true));
+      //add back button
+      this.layers[2 + i].add_member(new HighlightButton(this, "Back", [(padding + START_MENU_VWIDTH) / SCALE, 0], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
+        this.handle_message_window(StartMenuMessage.BackCategories, Object.values(ApplicationCategories)[i]);
+      }));
+      //add registered windows in the category
+      let in_category = Object.values(this.registry).filter((registered) => registered[3] === Object.values(ApplicationCategories)[i]);
+      for (let j = 0; j < in_category.length; j++) {
+        //todo: what happens if there are too many registered windows to fit?
+        this.layers[2 + i].add_member(new HighlightButton(this, in_category[j][2], [(padding + START_MENU_VWIDTH) / SCALE, height * (j + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
+          //todo: send request to open that window
+          this.send_request(WindowRequest.OpenWindow, {
+            name: in_category[j][4],
+            open_layer_name: "windows",
+            unique: false,
+          }, this.secret);
+        }));
+      }
       //add the highlight buttons too, why not
       this.layers[1].add_member(new HighlightButton(this, Object.keys(ApplicationCategories)[i], [(padding + START_MENU_VWIDTH) / SCALE, height * (i + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
-        //placeholder
-        //
+        this.handle_message_window(StartMenuMessage.ToCategory, Object.values(ApplicationCategories)[i]);
       }));
     }
     //add help and exit
@@ -172,6 +193,14 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     } else if (message === WindowMessage.MouseMove) {
       //do not deselect is mouse leaves, mouse moves outside, etc (architectural decision)
       this.do_rerender = this.components.filter((c) => c.clickable).some((c) => c.handle_message(message, data));
+    } else if (message === WindowMessage.ChangeTheme) {
+      this.do_rerender = true;
+    } else if (message === StartMenuMessage.ToCategory && typeof data === "string") {
+      this.layers[1].hide = true;
+      this.layers.find((layer) => layer.layer_name === data).hide = false;
+    } else if (message === StartMenuMessage.BackCategories && typeof data === "string") {
+      this.layers[1].hide = false;
+      this.layers.find((layer) => layer.layer_name === data).hide = true;
     }
     //
     return this.do_rerender;

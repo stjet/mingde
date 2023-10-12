@@ -11,7 +11,7 @@ import { TASKBAR_HEIGHT, SCALE } from './mingde/constants.js'
 
   wm.set_layers([new Layer(wm, "desktop"), new Layer(wm, "windows", true), new Layer(wm, "taskbar")]);
 
-  wm.layers[2].add_member(new Taskbar(), [0, document.body.clientHeight - TASKBAR_HEIGHT / SCALE]);
+  wm.layers[2].add_member(new Taskbar(registry), [0, document.body.clientHeight - TASKBAR_HEIGHT / SCALE]);
 
   //wm.layers[3].add_member(new StartMenu(), [0, document.body.clientHeight - TASKBAR_HEIGHT / SCALE - START_MENU_SIZE[0] / SCALE]);
 
