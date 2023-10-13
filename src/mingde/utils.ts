@@ -1,4 +1,5 @@
 import { CursorType } from './requests.js';
+import { SHORTCUTS } from './constants.js';
 
 function gen_random(bytes_num: number) {
   let uint8 = new Uint8Array(bytes_num);
@@ -62,5 +63,18 @@ export function interpret_me_buttons(buttons: number): [CursorType] {
 
 export function random_int(lower: number, upper: number): number {
   return lower + Math.floor(Math.random() * (upper - lower));
+}
+
+export function key_is_switch_focus_shortcut(key: string): boolean {
+  return SHORTCUTS["switch-0"].includes(key) || SHORTCUTS["switch-1"].includes(key) || SHORTCUTS["switch-2"].includes(key) || SHORTCUTS["switch-3"].includes(key) || SHORTCUTS["switch-4"].includes(key) || SHORTCUTS["switch-5"].includes(key) || SHORTCUTS["switch-6"].includes(key) || SHORTCUTS["switch-7"].includes(key) || SHORTCUTS["switch-8"].includes(key) || SHORTCUTS["switch-9"].includes(key);
+}
+
+export function get_switch_key_index(key: string): number {
+  for (let i = 0; i < 10; i++) {
+    if (SHORTCUTS[`switch-${i}`].includes(key)) {
+      return i;
+    }
+  }
+  return 0; //should never get here
 }
 

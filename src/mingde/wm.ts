@@ -1,15 +1,15 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isMouseEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
-import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES, SHORTCUTS } from './constants.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
-import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, DesktopTime } from './utils.js';
+import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
 import type { Registry } from './registry.js';
 
 import { Button } from './components/button.js';
 import { TextLine } from './components/text_line.js';
 
 export enum WindowMessage {
-  KeyDown = "KeyDown",
+  KeyDown = "Keydown",
   MouseMove = "MouseMove",
   MouseDown = "MouseDown",
   MouseUp = "MouseUp",
@@ -26,11 +26,14 @@ export enum WindowMessage {
 
 export enum TaskbarMessageStandard {
   WindowFocusChange = "WindowFocusChange", //data is string id
-  StartMenuClose = "StartMenuClose", //data is boolean, doesn't matter
+  StartMenuOpen = "StartMenuOpen", //data is boolean, doesn't matter
+  StartMenuClosed = "StartMenuClosed", //data is boolean, doesn't matter
+  SwitchFocus = "SwitchFocus", //data is index (number) of window to switch to
 }
 
 export enum StartMenuMessageStandard {
   MouseDownOutside = "MouseDownOutside", //data is just boolean, doesn't matter
+  StartMenuClose = "StartMenuClose",
 }
 
 //Inspired by Elm Architecture
@@ -177,110 +180,106 @@ export class Window<MessageType> implements WindowLike<MessageType> {
     this.top_components = create_top_components();
     //intercept requests, so top bar close button, dragging, etc, can't be overriden
     //bug: where move mode still happens when dragging window near bottom and releasing on taskbar?
-    this.handle_message_window = (message: WindowMessage, data: any) => {
+    this.handle_message_window = (message: MessageType | WindowMessage, data: any) => {
       const win_margin: number = 9 * SCALE;
       let propogate_down = true;
-      if (message === WindowMessage.MouseDown) {
-        if (isMouseEvent(data)) {
-          if (data.clientY < WINDOW_TOP_HEIGHT) {
-            propogate_down = false;
-            let relevant_components = this.top_components.filter((c) => {
-              return data.clientX > c.coords[0] && data.clientY > c.coords[1] && data.clientX < c.coords[0] + c.size[0] && data.clientY < c.coords[1] + c.size[1] && c.clickable;
-            });
-            relevant_components.forEach((c) => c.handle_message(message, data));
-            if (relevant_components.length === 0) {
-              //dragging mode
-              this.move_mode = true;
-              this.move_coords = [data.screenX, data.screenY];
-            }
-          } else if (data.clientY > this.size[1] - win_margin && this.resizable) {
-            this.hresize_mode = true;
-            this.hresize_info = [data.screenY, this.size[1]];
-          } else if (data.clientX > this.size[0] - win_margin && this.resizable) {
-            this.wresize_mode = true;
-            this.wresize_info = [data.screenX, this.size[0]];
+      if (message === WindowMessage.MouseDown && isMouseEvent(data)) {
+        if (data.clientY < WINDOW_TOP_HEIGHT) {
+          propogate_down = false;
+          let relevant_components = this.top_components.filter((c) => {
+            return data.clientX > c.coords[0] && data.clientY > c.coords[1] && data.clientX < c.coords[0] + c.size[0] && data.clientY < c.coords[1] + c.size[1] && c.clickable;
+          });
+          relevant_components.forEach((c) => c.handle_message(message, data));
+          if (relevant_components.length === 0) {
+            //dragging mode
+            this.move_mode = true;
+            this.move_coords = [data.screenX, data.screenY];
           }
+        } else if (data.clientY > this.size[1] - win_margin && this.resizable) {
+          this.hresize_mode = true;
+          this.hresize_info = [data.screenY, this.size[1]];
+        } else if (data.clientX > this.size[0] - win_margin && this.resizable) {
+          this.wresize_mode = true;
+          this.wresize_info = [data.screenX, this.size[0]];
         }
-      } else if (message === WindowMessage.MouseMove) {
-        if (isMouseEvent(data)) {
-          const is_default_cursor: boolean = interpret_me_buttons(data.buttons)[0] === CursorType.Default;
-          if (data.clientY < WINDOW_TOP_HEIGHT) {
-            propogate_down = false;
-            let clickable_found = this.top_components.filter((c) => {
-              return data.clientX > c.coords[0] && data.offsetY > c.coords[1] && data.clientX < c.coords[0] + c.size[0] && data.clientY < c.coords[1] + c.size[1];
-            }).some((c) => c.clickable);
-            if (!clickable_found) {
-              //no need to send more requests if already correct cursor
-              if (!this.move_hover && is_default_cursor) {
-                this.move_hover = true;
-                this.send_request(WindowRequest.ChangeCursor, {
-                  new_cursor: CursorType.Move,
-                }, this.secret);
-                this.wresize_hover = false;
-                this.hresize_hover = false;
-              }
-            } else {
-              //again don't send more requests than needed
-              if (this.move_hover) {
-                //don't show move cursor if hovering over button on window top
-                this.move_hover = false;
-                this.send_request(WindowRequest.ChangeCursor, {
-                  new_cursor: CursorType.Default,
-                }, this.secret);
-              }
+      } else if (message === WindowMessage.MouseMove && isMouseEvent(data)) {
+        const is_default_cursor: boolean = interpret_me_buttons(data.buttons)[0] === CursorType.Default;
+        if (data.clientY < WINDOW_TOP_HEIGHT) {
+          propogate_down = false;
+          let clickable_found = this.top_components.filter((c) => {
+            return data.clientX > c.coords[0] && data.offsetY > c.coords[1] && data.clientX < c.coords[0] + c.size[0] && data.clientY < c.coords[1] + c.size[1];
+          }).some((c) => c.clickable);
+          if (!clickable_found) {
+            //no need to send more requests if already correct cursor
+            if (!this.move_hover && is_default_cursor) {
+              this.move_hover = true;
+              this.send_request(WindowRequest.ChangeCursor, {
+                new_cursor: CursorType.Move,
+              }, this.secret);
+              this.wresize_hover = false;
+              this.hresize_hover = false;
             }
           } else {
-            //stop cursor if move out of window top and not in move mode
-            if (this.move_hover && !this.move_mode) {
+            //again don't send more requests than needed
+            if (this.move_hover) {
+              //don't show move cursor if hovering over button on window top
               this.move_hover = false;
               this.send_request(WindowRequest.ChangeCursor, {
                 new_cursor: CursorType.Default,
               }, this.secret);
             }
-            //if on right or bottom margins of the window
-            if (data.clientY > this.size[1] - win_margin) {
-              if (!this.hresize_hover && is_default_cursor && this.resizable) {
-                this.hresize_hover = true;
-                this.send_request(WindowRequest.ChangeCursor, {
-                  new_cursor: CursorType.RowResize,
-                }, this.secret);
-              }
-            } else if (data.clientX > this.size[0] - win_margin) {
-              if (!this.wresize_hover && is_default_cursor && this.resizable) {
-                this.wresize_hover = true;
-                this.send_request(WindowRequest.ChangeCursor, {
-                  new_cursor: CursorType.ColResize,
-                }, this.secret);
-              }
-            } else if ((this.wresize_hover || this.hresize_hover) && (!this.wresize_mode && !this.hresize_mode)) {
-              this.wresize_hover = false;
-              this.hresize_hover = false;
+          }
+        } else {
+          //stop cursor if move out of window top and not in move mode
+          if (this.move_hover && !this.move_mode) {
+            this.move_hover = false;
+            this.send_request(WindowRequest.ChangeCursor, {
+              new_cursor: CursorType.Default,
+            }, this.secret);
+          }
+          //if on right or bottom margins of the window
+          if (data.clientY > this.size[1] - win_margin) {
+            if (!this.hresize_hover && is_default_cursor && this.resizable) {
+              this.hresize_hover = true;
               this.send_request(WindowRequest.ChangeCursor, {
-                new_cursor: CursorType.Default,
+                new_cursor: CursorType.RowResize,
               }, this.secret);
             }
-          }
-          if (this.move_mode) {
-            this.send_request(WindowRequest.ChangeCoords, {
-              delta_coords: [data.screenX - this.move_coords[0], data.screenY - this.move_coords[1]],
+          } else if (data.clientX > this.size[0] - win_margin) {
+            if (!this.wresize_hover && is_default_cursor && this.resizable) {
+              this.wresize_hover = true;
+              this.send_request(WindowRequest.ChangeCursor, {
+                new_cursor: CursorType.ColResize,
+              }, this.secret);
+            }
+          } else if ((this.wresize_hover || this.hresize_hover) && (!this.wresize_mode && !this.hresize_mode)) {
+            this.wresize_hover = false;
+            this.hresize_hover = false;
+            this.send_request(WindowRequest.ChangeCursor, {
+              new_cursor: CursorType.Default,
             }, this.secret);
-            this.move_coords = [data.screenX, data.screenY];
-          } else if (this.wresize_mode) {
-            this.size[0] = this.wresize_info[1] + (data.screenX - this.wresize_info[0]);
-            if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
-              this.size[0] = WINDOW_MIN_DIMENSIONS[0];
-            }
-            this.canvas.width = this.size[0];
-            this.top_components = create_top_components();
-            this.do_rerender = true;
-          } else if (this.hresize_mode) {
-            this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
-            if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
-              this.size[1] = WINDOW_MIN_DIMENSIONS[1];
-            }
-            this.canvas.height = this.size[1];
-            this.do_rerender = true;
           }
+        }
+        if (this.move_mode) {
+          this.send_request(WindowRequest.ChangeCoords, {
+            delta_coords: [data.screenX - this.move_coords[0], data.screenY - this.move_coords[1]],
+          }, this.secret);
+          this.move_coords = [data.screenX, data.screenY];
+        } else if (this.wresize_mode) {
+          this.size[0] = this.wresize_info[1] + (data.screenX - this.wresize_info[0]);
+          if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+            this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+          }
+          this.canvas.width = this.size[0];
+          this.top_components = create_top_components();
+          this.do_rerender = true;
+        } else if (this.hresize_mode) {
+          this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
+          if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+            this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+          }
+          this.canvas.height = this.size[1];
+          this.do_rerender = true;
         }
       } else if (message === WindowMessage.MouseUp) {
         if (this.move_mode) {
@@ -358,6 +357,16 @@ export class Window<MessageType> implements WindowLike<MessageType> {
           this.send_request(WindowRequest.ChangeCursor, {
             new_cursor: CursorType.Default,
           }, this.secret);
+        }
+      } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+        if (data.altKey) {
+          //keyboard shortcuts
+          if (SHORTCUTS["close-window"].includes(data.key)) {
+            //close window
+            this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
+          }
+        } else {
+          propogate_down = true;
         }
       } else if (message === WindowMessage.ChangeTheme) {
         this.do_rerender = true;
@@ -564,6 +573,13 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     //set up event listeners that dispatch messages
     this.canvas.addEventListener("keydown", (event: KeyboardEvent) => {
       this.handle_message(WindowMessage.KeyDown, event);
+      if (CONFIG.OVERRIDE_BROWSER_SHORTCUTS) {
+        //only override if it is actually a shortcut key
+        if (Object.values(SHORTCUTS).flat().includes(event.key)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }
     });
     this.canvas.addEventListener("mousemove", (event: MouseEvent) => {
       this.handle_message(WindowMessage.MouseMove, event);
@@ -702,9 +718,26 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         });
       }
       window_rerendered = window_rerendered || window_rerendered_actual;
-    } else if (message === WindowMessage.KeyDown) {
-      //send to focused window
-      if (this.focused_id) {
+    } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      //check if it is start menu shortcut, if so, send to taskbar to open (or start menu to close)
+      if (data.altKey && SHORTCUTS["start-menu"].includes(data.key)) {
+        window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+          return member.handle_message_window(TaskbarMessageStandard.StartMenuOpen, true);
+        });
+        if (!window_rerendered) {
+          //probably means start menu is already open, close it
+          this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.StartMenu).forEach(([member, _coords]) => {
+            member.handle_message_window(StartMenuMessageStandard.StartMenuClose, true);
+          });
+          this.focused_id = undefined;
+        }
+      } else if (data.altKey && key_is_switch_focus_shortcut(data.key)) {
+        //send to taskbars
+        window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+          member.handle_message_window(TaskbarMessageStandard.SwitchFocus, get_switch_key_index(data.key));
+        });
+      } else if (this.focused_id) {
+        //send to focused window
         window_rerendered = this.windows.reverse().find(([member, _coords]) => {
           return member.id === this.focused_id;
         })![0].handle_message_window(message, data);
@@ -745,6 +778,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         let remaining = this.windows.filter(([member, _coords]) => isWindow(member)).reverse();
         if (remaining.length > 0) {
           this.focused_id = remaining[0][0].id;
+        } else {
+          this.focused_id = undefined;
         }
       }
       this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
@@ -771,7 +806,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       if (removed_member?.sub_type === WindowLikeType.StartMenu) {
         //send start menu close message to taskbar
         this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
-          member.handle_message_window(TaskbarMessageStandard.StartMenuClose, true);
+          member.handle_message_window(TaskbarMessageStandard.StartMenuClosed, true);
         });
       }
     } else if (request === WindowRequest.ChangeCursor && data.trusted && isChangeCursorValue(data)) {
@@ -844,14 +879,19 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
             //(add_member will send a message)
             //but if not a member, we need to change the focus here
             this.focused_id = member.id; //add_member also adds the id
+          } else {
+            //so start menu closes once window is opened (if start menu is open)
+            this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.StartMenu).forEach(([member, _coords]) => {
+              member.handle_message_window(StartMenuMessageStandard.MouseDownOutside, true);
+            });
           }
         }
       } else {
         return;
       }
-    } else if (request === WindowRequest.ChangeTheme && isChangeThemeValue(data)) {
+    } else if (request === WindowRequest.ChangeTheme && isChangeThemeValue(data) && data.id === this.focused_id) {
       if (this.theme === data.new_theme) return;
-      //permission system, possibly also require it to be focused window
+      //permission system?
       //
       this.theme = data.new_theme;
       this.windows.forEach(([member, _coords]) => member.handle_message_window(WindowMessage.ChangeTheme, data.new_theme));

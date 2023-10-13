@@ -12,6 +12,24 @@ export let FONT_SIZES: Record<string, number> = {
   NORMAL: 13 * SCALE,
 };
 
+export type Shortcut = "close-window" | "start-menu" | `switch-${number}`;
+
+//all are alt+
+export let SHORTCUTS: Record<Shortcut, string[]> = {
+  "close-window": ["w", "q"],
+  "start-menu": ["Control"],
+  "switch-0": ["1"],
+  "switch-1": ["2"],
+  "switch-2": ["3"],
+  "switch-3": ["4"],
+  "switch-4": ["5"],
+  "switch-5": ["6"],
+  "switch-6": ["7"],
+  "switch-7": ["8"],
+  "switch-8": ["9"],
+  "switch-9": ["0"],
+};
+
 export const CONFIG = {
   DEBUG: {
     REQUESTS: true, //todo: fine grain by request type
@@ -24,4 +42,5 @@ export const CONFIG = {
   DEFAULT_BACKGROUND: "#008080",
   MINGDE_YELLOW: "#FFC90E",
   MINGDE_YELLOW_2: "#E1DB4D",
+  OVERRIDE_BROWSER_SHORTCUTS: true,
 };

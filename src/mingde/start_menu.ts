@@ -1,5 +1,5 @@
 import { Component, WindowLikeType, WindowLike, WindowOptions, WindowMessage, Layer, StartMenuMessageStandard } from './wm.js';
-import { isMouseEvent } from './guards.js';
+import { isMouseEvent, isKeyboardEvent } from './guards.js';
 import { Themes, THEME_INFOS } from './themes.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
 import { CONFIG, START_MENU_VWIDTH, START_MENU_SIZE, SCALE, FONT_SIZES, VERSION } from './constants.js';
@@ -121,7 +121,7 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret?: string) => void 0;
     this.handle_message_window = (message: StartMenuMessage | StartMenuMessageStandard | WindowMessage, data: any) => {
       //probably can be moved to regular message handler?
-      if (message === StartMenuMessageStandard.MouseDownOutside) {
+      if (message === StartMenuMessageStandard.MouseDownOutside || message === StartMenuMessageStandard.StartMenuClose) {
         this.send_request(WindowRequest.CloseWindow, {}); //close window request does not care about trusted and secret
         return false;
       } else if (message === WindowMessage.Resize) {
@@ -189,6 +189,47 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
         if (relevant_components.length > 0) {
           this.do_rerender = true;
         }
+      }
+    } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      if (data.key === "ArrowDown" || data.key === "ArrowUp" || data.key === "Enter") {
+        //find all highlight buttons
+        let highlight_buttons: HighlightButton<StartMenuMessage | StartMenuMessageStandard | WindowMessage>[] = this.components.filter((c): c is HighlightButton<StartMenuMessage | StartMenuMessageStandard | WindowMessage> => c.type === "highlight-button");
+        let first_highlighted = highlight_buttons.find((c) => c.highlighted);
+        //unhighlight all buttons
+        highlight_buttons.forEach((c) => {
+          c.highlighted = false;
+        });
+        if (data.key === "ArrowDown") {
+          if (!first_highlighted) {
+            //highlight the first one
+            highlight_buttons[0].highlighted = true;
+          } else {
+            //highlight the next one (if reached end, highlight first one)
+            let index: number = highlight_buttons.findIndex((c) => c.id === first_highlighted.id);
+            index++;
+            if (index >= highlight_buttons.length) {
+              index = 0;
+            }
+            highlight_buttons[index].highlighted = true;
+          }
+        } else if (data.key === "ArrowUp") {
+          if (!first_highlighted) {
+            //highlight the first one
+            highlight_buttons[0].highlighted = true;
+          } else {
+            //highlight the prev one (if reached start, highlight last one)
+            let index: number = highlight_buttons.findIndex((c) => c.id === first_highlighted.id);
+            index--;
+            if (index < 0) {
+              index = highlight_buttons.length - 1;
+            }
+            highlight_buttons[index].highlighted = true;
+          }
+        } else if (data.key === "Enter") {
+          //todo: kinda hacky, make it something else
+          first_highlighted.handle_message(WindowMessage.MouseDown, new MouseEvent("mousedown"));
+        }
+        this.do_rerender = true;
       }
     } else if (message === WindowMessage.MouseMove) {
       //do not deselect is mouse leaves, mouse moves outside, etc (architectural decision)

@@ -10,7 +10,7 @@ const padding: number = 4;
 
 export enum TaskbarMessage {
   ReceiveTimeUpdate = "ReceiveTimeUpdate",
-  StartMenuOpen = "StartMenuOpen", //doesn't open start menu, but message is sent when start menu opened
+  StartMenuOpened = "StartMenuOpened", //doesn't open start menu, but message is sent when start menu opened
 }
 
 export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStandard> {
@@ -66,7 +66,7 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
           args: [this.registry],
         }, this.secret);
         //send message to invert self
-        this.handle_message(TaskbarMessage.StartMenuOpen, true);
+        this.handle_message(TaskbarMessage.StartMenuOpened, true);
       }
     }, true));
     //add time button
@@ -161,6 +161,10 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
         delta_coords: [0, 0], //dummy
         stick_bottom: true,
       }, this.secret);
+      //change coords of time
+      const padding_y: number = (TASKBAR_HEIGHT / SCALE - FONT_SIZES.BUTTON / SCALE - 8) / 2;
+      this.layers[0].remove_member(this.layers[0].members[1].id);
+      this.layers[0].add_member(new Button(this, "00:00?", [this.size[0] / SCALE - 75, padding], 75 - padding, padding_y, () => {}, undefined, true));
       this.do_rerender = true;
     } else if (message === WindowMessage.MouseDown) {
       if (isMouseEvent(data)) {
@@ -183,14 +187,37 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
     } else if (message === TaskbarMessageStandard.WindowFocusChange && typeof data === "string") {
       this.focused_id = data;
       this.do_rerender = true;
+    } else if (message === TaskbarMessageStandard.StartMenuOpen) {
+      if (!this.start_menu_open) {
+        //open start menu
+        this.send_request(WindowRequest.OpenWindow, {
+          name: "start-menu",
+          open_layer_name: "",
+          unique: true,
+          coords_offset: [0, 0],
+          sub_size_y: true,
+          args: [this.registry],
+        }, this.secret);
+        //send message to invert self
+        this.handle_message(TaskbarMessage.StartMenuOpened, true);
+        this.do_rerender = true;
+      }
+    } else if (message === TaskbarMessageStandard.SwitchFocus && typeof data === "number") {
+      let open_window: WindowMetadata | undefined = this.open_windows[data];
+      if (open_window) {
+        this.send_request(WindowRequest.FocusWindow, {
+          new_focus: open_window.id,
+        }, this.secret);
+        this.do_rerender = true;
+      }
     } else if (message === TaskbarMessage.ReceiveTimeUpdate && isDesktopTime(data)) {
       (this.layers[0].members[1] as Button<TaskbarMessage | WindowMessage>).text = `${String(data.hours).length === 1 ? "0" + data.hours : data.hours}:${String(data.minutes).length === 1 ? "0" + data.minutes : data.minutes}~`;
-    } else if (message === TaskbarMessage.StartMenuOpen) {
+    } else if (message === TaskbarMessage.StartMenuOpened) {
       this.start_menu_open = true;
       //thing might get out of sync if multiple start menus exist. but only one should exist... so... it's ok
       (this.layers[0].members[0] as Button<TaskbarMessage | TaskbarMessageStandard>).inverted = true;
       this.do_rerender = true;
-    } else if (message === TaskbarMessageStandard.StartMenuClose) {
+    } else if (message === TaskbarMessageStandard.StartMenuClosed) {
       this.start_menu_open = false;
       (this.layers[0].members[0] as Button<TaskbarMessage | TaskbarMessageStandard>).inverted = false;
       this.do_rerender = true;
