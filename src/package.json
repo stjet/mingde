@@ -9,7 +9,8 @@
     "server": "node ../preview.js",
     "dev": "tsc -w -p . --preserveWatchOutput & npm run server",
     "build": "tsc -p . && ./node_modules/.bin/esbuild index.js --bundle --minify --outfile=index.js --allow-overwrite",
-    "strict": "tsc -p ./strict_tsconfig.json"
+    "strict": "tsc -p ./strict_tsconfig.json",
+    "loc": "git ls-files | grep '\\.ts' | xargs wc -l"
   },
   "repository": {
     "type": "git",

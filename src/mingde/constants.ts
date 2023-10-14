@@ -6,7 +6,8 @@ export const START_MENU_SIZE: [number, number] = [175 * SCALE, 250 * SCALE];
 export const START_MENU_VWIDTH: number = (42 - 5) * SCALE; //width of the vertical strip
 export const FONT_NAME: string = "Times New Roman";
 export const WINDOW_MIN_DIMENSIONS: [number, number] = [100 * SCALE, 100 * SCALE];
-export let FONT_SIZES: Record<string, number> = {
+export const FONT_SIZES: Record<string, number> = {
+  HEADING: 20 * SCALE,
   TOP: 16 * SCALE,
   BUTTON: 16 * SCALE,
   NORMAL: 13 * SCALE,

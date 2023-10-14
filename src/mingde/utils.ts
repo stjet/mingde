@@ -78,3 +78,14 @@ export function get_switch_key_index(key: string): number {
   return 0; //should never get here
 }
 
+export function list_list_includes(list_list: any[][], list: any[]): boolean {
+  return list_list.find((l) => {
+    for (let i = 0; i < l.length; i++) {
+      if (l[i] !== list[i]) {
+        return false;
+      }
+    }
+    return true;
+  }) ? true : false;
+}
+

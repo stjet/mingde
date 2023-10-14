@@ -863,6 +863,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
             return;
           }
           let start_coords: [number, number] = [(this.size[0] - member.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - member.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
+          if (start_coords[1] < 0) {
+            start_coords[1] = 0;
+          }
           if (data.coords_offset) {
             let found_opener: [number, number] = found_layer.coords[data.id];
             start_coords = [found_opener[0] / SCALE + data.coords_offset[0], found_opener[1] / SCALE + data.coords_offset[1]];

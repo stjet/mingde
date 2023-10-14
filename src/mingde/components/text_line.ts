@@ -13,17 +13,17 @@ export class TextLine<MessageType> implements Component<MessageType> {
   size: [number, number];
   color: keyof ThemeInfo;
   font_size: keyof typeof FONT_SIZES;
-  max_width: number | undefined;
+  max_width?: number;
   ellipsis: boolean;
   bold: boolean;
 
-  constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], color: keyof ThemeInfo, font_size: keyof typeof FONT_SIZES, max_width: number | undefined, ellipsis: boolean = false, bold: boolean = true) {
+  constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], color: keyof ThemeInfo, font_size: keyof typeof FONT_SIZES, max_width?: number, ellipsis: boolean = false, bold: boolean = true) {
     this.parent = parent;
     this.text = text;
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
     this.color = color;
     this.font_size = font_size;
-    this.max_width = max_width * SCALE;
+    this.max_width = max_width ? max_width * SCALE : max_width;
     this.ellipsis = ellipsis; //if length more than max_width, ellipsis
     this.bold = bold;
     //placeholder until width, height calculated

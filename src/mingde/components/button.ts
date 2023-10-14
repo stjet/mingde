@@ -12,7 +12,7 @@ export class Button<MessageType> implements Component<MessageType> {
   readonly type: string = "button";
   clickable: boolean = true;
 
-  id: string;  
+  id: string;
   readonly parent: WindowLike<MessageType | WindowMessage>;
   text: string;
   coords: [number, number];
