@@ -210,6 +210,40 @@ export class Taskbar implements WindowLike<TaskbarMessage | TaskbarMessageStanda
         }, this.secret);
         this.do_rerender = true;
       }
+    } else if (message === TaskbarMessageStandard.FocusCycleLeft) {
+      let current_focused: number = this.open_windows.findIndex((w) => w.id === this.focused_id);
+      let new_index: number;
+      //yeah, I technically could condense this, but this is more readable
+      if (current_focused === -1) {
+        //not found
+        new_index = 0;
+      } else {
+        new_index = current_focused - 1;
+        if (new_index < 0) {
+          new_index = this.open_windows.length - 1;
+        }
+      }
+      this.send_request(WindowRequest.FocusWindow, {
+        new_focus: this.open_windows[new_index].id,
+      }, this.secret);
+      this.do_rerender = true;
+    } else if (message === TaskbarMessageStandard.FocusCycleRight) {
+      let current_focused: number = this.open_windows.findIndex((w) => w.id === this.focused_id);
+      let new_index: number;
+      //yeah, I technically could condense this, but this is more readable
+      if (current_focused === -1) {
+        //not found
+        new_index = 0;
+      } else {
+        new_index = current_focused + 1;
+        if (new_index >= this.open_windows.length) {
+          new_index = 0;
+        }
+      }
+      this.send_request(WindowRequest.FocusWindow, {
+        new_focus: this.open_windows[new_index].id,
+      }, this.secret);
+      this.do_rerender = true;
     } else if (message === TaskbarMessage.ReceiveTimeUpdate && isDesktopTime(data)) {
       (this.layers[0].members[1] as Button<TaskbarMessage | WindowMessage>).text = `${String(data.hours).length === 1 ? "0" + data.hours : data.hours}:${String(data.minutes).length === 1 ? "0" + data.minutes : data.minutes}~`;
     } else if (message === TaskbarMessage.StartMenuOpened) {

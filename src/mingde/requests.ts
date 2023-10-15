@@ -5,6 +5,7 @@ export enum WindowRequest {
   CloseWindow = "CloseWindow", //or windowlike
   OpenWindow = "OpenWindow", //or windowlike
   FocusWindow = "FocusWindow",
+  FullscreenWindow = "FullscreenWindow",
   ChangeCursor = "ChangeCursor",
   ChangeCoords = "ChangeCoords",
   ChangeTheme = "ChangeTheme", //also a WindowMessage called this, that won't be confusing at all...
@@ -57,6 +58,7 @@ export interface WindowRequestValues {
   [WindowRequest.CloseWindow]: WindowRequestValue,
   [WindowRequest.OpenWindow]: OpenWindowValue,
   [WindowRequest.FocusWindow]: FocusWindowValue,
+  [WindowRequest.FullscreenWindow]: WindowRequestValue,
   [WindowRequest.ChangeCursor]: ChangeCursorValue,
   [WindowRequest.ChangeCoords]: ChangeCoordsValue,
   [WindowRequest.ChangeTheme]: ChangeThemeValue,

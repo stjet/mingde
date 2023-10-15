@@ -1,14 +1,61 @@
 import { StartMenu, ApplicationCategories } from './start_menu.js';
 import { AlertBox } from './windows/alert_box.js';
+import { AllowBox } from './windows/allow_box.js';
 import { Settings } from './windows/settings.js';
 import { Minesweeper } from './windows/minesweeper.js';
 
-export type Registry = Record<string, [any, any[], string, ApplicationCategories | "none", string]>;
+export interface Permission {
+  change_theme?: boolean;
+  //
+}
+
+export type Permissions = Record<string, Permission>;
+
+export interface Register {
+  class: any;
+  args: any[];
+  display_name: string;
+  category: ApplicationCategories | "none";
+  name: string;
+};
+
+export type Registry = Record<string, Register>;
 
 export const registry: Registry = {
-  "start-menu": [StartMenu, [], "Start Menu", "none", "start-menu"],
-  "alert-box": [AlertBox, [], "Alert Box", "none", "alert-box"],
-  "settings": [Settings, [[300, 200]], "Settings", ApplicationCategories.System, "settings"],
-  "minesweeper": [Minesweeper, [], "Minesweeper", ApplicationCategories.Games, "minesweeper"],
+  "start-menu": {
+    class: StartMenu,
+    args: [],
+    display_name: "Start Menu",
+    category: "none",
+    name: "start-menu",
+  },
+  "alert-box": {
+    class: AlertBox,
+    args: [],
+    display_name: "Alert Box",
+    category: "none",
+    name: "alert-box",
+  },
+  "allow-box": {
+    class: AllowBox,
+    args: [],
+    display_name: "Allow Box",
+    category: "none",
+    name: "allow-box",
+  },
+  "settings": {
+    class: Settings,
+    args: [[300, 200]],
+    display_name: "Settings",
+    category: ApplicationCategories.System,
+    name: "settings",
+  },
+  "minesweeper": {
+    class: Minesweeper,
+    args: [],
+    display_name: "Minesweeper",
+    category: ApplicationCategories.Games,
+    name: "minesweeper"
+  },
 };
 

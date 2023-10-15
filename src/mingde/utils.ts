@@ -1,5 +1,5 @@
 import { CursorType } from './requests.js';
-import { SHORTCUTS } from './constants.js';
+import { SHORTCUTS } from './mutables.js';
 
 function gen_random(bytes_num: number) {
   let uint8 = new Uint8Array(bytes_num);

@@ -1,9 +1,10 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
 import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
-import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES, SHORTCUTS } from './constants.js';
+import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
+import { SHORTCUTS, WindowManagerSettings } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
-import type { Registry } from './registry.js';
+import type { Registry, Permissions } from './registry.js';
 
 import { Button } from './components/button.js';
 import { TextLine } from './components/text_line.js';
@@ -22,6 +23,7 @@ export enum WindowMessage {
   MouseUpOutside = "MouseUpOutside",
   WindowAdd = "WindowAdd",
   WindowRemove = "WindowRemove",
+  WindowResize = "WindowResize",
 }
 
 export enum TaskbarMessageStandard {
@@ -29,6 +31,8 @@ export enum TaskbarMessageStandard {
   StartMenuOpen = "StartMenuOpen", //data is boolean, doesn't matter
   StartMenuClosed = "StartMenuClosed", //data is boolean, doesn't matter
   SwitchFocus = "SwitchFocus", //data is index (number) of window to switch to
+  FocusCycleLeft = "FocusCycleLeft", //data is boolean, doesn't matter
+  FocusCycleRight = "FocusCycleRight", //data is boolean, doesn't matter
 }
 
 export enum StartMenuMessageStandard {
@@ -84,6 +88,7 @@ export interface WindowMessageValues {
   [WindowMessage.MouseUpOutside]: boolean,
   [WindowMessage.WindowAdd]: WindowChangeEvent,
   [WindowMessage.WindowRemove]: WindowChangeEvent,
+  [WindowMessage.WindowResize]: [number, number],
 }
 
 export enum WindowLikeType {
@@ -143,7 +148,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
 
   send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
 
-  constructor(size: [number, number], title: string, window_type: string = "") {
+  constructor(size: [number, number], title: string, window_type: string = "", resizable: boolean = true) {
     this.size = [size[0] * SCALE, size[1] * SCALE];
     this.title = title;
     this.window_type = window_type;
@@ -153,7 +158,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
     this.wresize_hover = false;
     this.hresize_mode = false;
     this.hresize_hover = false;
-    this.resizable = true;
+    this.resizable = resizable;
     //set to true for first render
     this.do_rerender = true;
     this.canvas = document.createElement("CANVAS") as HTMLCanvasElement;
@@ -364,11 +369,24 @@ export class Window<MessageType> implements WindowLike<MessageType> {
           if (SHORTCUTS["close-window"].includes(data.key)) {
             //close window
             this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
+          } else if (SHORTCUTS["fullscreen-window"].includes(data.key) && this.resizable) {
+            this.send_request(WindowRequest.FullscreenWindow, {}, this.secret);
+            this.do_rerender = true;
           }
         } else {
           propogate_down = true;
         }
       } else if (message === WindowMessage.ChangeTheme) {
+        this.do_rerender = true;
+      } else if (message === WindowMessage.WindowResize && isCoords(data) && this.resizable) {
+        //this message is basically only sent from WindowManager,
+        //since internally (inside `Window`) only the x or y coords are changed (from the dragging to resize),
+        //and sending messages is not really necessary
+        //obviously only resize if the window is resizable
+        this.size = data;
+        this.canvas.width = this.size[0];
+        this.canvas.height = this.size[1];
+        this.top_components = create_top_components();
         this.do_rerender = true;
       }
       if (propogate_down) {
@@ -424,8 +442,8 @@ export class Window<MessageType> implements WindowLike<MessageType> {
 export class Layer<MemberType extends Member> {
   layer_name: string;
   hide: boolean;
+  windows_only: boolean;
 
-  private windows_only: boolean;
   private parent: WindowLike<any> | WindowManager;
   private member_num: number; //counts removed members too
   private _members: MemberType[];
@@ -546,8 +564,10 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   options: WindowOptions;
   render_stop: boolean;
   registry: Registry;
+  private permissions: Permissions;
+  private settings: WindowManagerSettings;
 
-  constructor(parent_id: string = "", registry: Registry, render_stop: boolean = false, theme: Themes = Themes.Standard) {
+  constructor(parent_id: string = "", registry: Registry, permissions: Permissions, settings: WindowManagerSettings, render_stop: boolean = false, theme: Themes = Themes.Standard) {
     this.total_renders = 0;
     this.size = [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE];
     this.layers = [];
@@ -558,6 +578,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       time: get_time(),
     };
     this.registry = registry;
+    this.permissions = permissions;
+    this.settings = settings;
     this.canvas = document.createElement("CANVAS") as HTMLCanvasElement;
     this.canvas.width = this.size[0];
     this.canvas.height = this.size[1];
@@ -573,7 +595,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     //set up event listeners that dispatch messages
     this.canvas.addEventListener("keydown", (event: KeyboardEvent) => {
       this.handle_message(WindowMessage.KeyDown, event);
-      if (CONFIG.OVERRIDE_BROWSER_SHORTCUTS) {
+      if (CONFIG.OVERRIDE_BROWSER_SHORTCUTS && this.settings.shortcuts) {
         //only override if it is actually a shortcut key
         if (Object.values(SHORTCUTS).flat().includes(event.key)) {
           event.preventDefault();
@@ -719,23 +741,41 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       }
       window_rerendered = window_rerendered || window_rerendered_actual;
     } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
-      //check if it is start menu shortcut, if so, send to taskbar to open (or start menu to close)
-      if (data.altKey && SHORTCUTS["start-menu"].includes(data.key)) {
-        window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
-          return member.handle_message_window(TaskbarMessageStandard.StartMenuOpen, true);
-        });
-        if (!window_rerendered) {
-          //probably means start menu is already open, close it
-          this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.StartMenu).forEach(([member, _coords]) => {
-            member.handle_message_window(StartMenuMessageStandard.StartMenuClose, true);
+      //if shortcuts is false, most keyboard shortcuts should be disabled
+      if (this.settings.shortcuts) {
+        //check if it is start menu shortcut, if so, send to taskbar to open (or start menu to close)
+        if (data.altKey && SHORTCUTS["start-menu"].includes(data.key)) {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+            return member.handle_message_window(TaskbarMessageStandard.StartMenuOpen, true);
           });
-          this.focused_id = undefined;
+          if (!window_rerendered) {
+            //probably means start menu is already open, close it
+            this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.StartMenu).forEach(([member, _coords]) => {
+              member.handle_message_window(StartMenuMessageStandard.StartMenuClose, true);
+            });
+            this.focused_id = undefined;
+          }
+        } else if (data.altKey && key_is_switch_focus_shortcut(data.key)) {
+          //send to taskbars
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+            member.handle_message_window(TaskbarMessageStandard.SwitchFocus, get_switch_key_index(data.key));
+          });
+        } else if (data.altKey && SHORTCUTS["cycle-left"].includes(data.key)) {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+            member.handle_message_window(TaskbarMessageStandard.FocusCycleLeft, true);
+          });
+        } else if (data.altKey && SHORTCUTS["cycle-right"].includes(data.key)) {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+            member.handle_message_window(TaskbarMessageStandard.FocusCycleRight, true);
+          });
+        } else if (this.focused_id) {
+          //send to focused window
+          window_rerendered = this.windows.reverse().find(([member, _coords]) => {
+            return member.id === this.focused_id;
+          })![0].handle_message_window(message, data);
+        } else {
+          return;
         }
-      } else if (data.altKey && key_is_switch_focus_shortcut(data.key)) {
-        //send to taskbars
-        window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
-          member.handle_message_window(TaskbarMessageStandard.SwitchFocus, get_switch_key_index(data.key));
-        });
       } else if (this.focused_id) {
         //send to focused window
         window_rerendered = this.windows.reverse().find(([member, _coords]) => {
@@ -788,7 +828,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       });
       window_rerendered = true;
     }
-    //so `window_rerendered = undefined` doesn't trigger this
+    //so `window_rerendered = undefined`doesn't trigger this
     if (window_rerendered === false) return;
     //WindowMessage.Resize just skips straight here
     //`return` before this if don't want to rerender
@@ -801,7 +841,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     }
     if (request === WindowRequest.CloseWindow) {
       //only lets window close itself, so we don't really care if trusted
-      let removed_member = this.layers.find((layer) => layer.layer_name === data.layer_name).remove_member(data.id);
+      let found_layer = this.layers.find((layer) => layer.layer_name === data.layer_name);
+      if (!found_layer) throw Error("Layer not found when trying to close window");
+      let removed_member = found_layer.remove_member(data.id);
       //should always be not undefined, but just in case... `?.` 
       if (removed_member?.sub_type === WindowLikeType.StartMenu) {
         //send start menu close message to taskbar
@@ -815,11 +857,11 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       //should not need to rerender
       return;
     } else if (request === WindowRequest.ChangeCoords && data.trusted && isChangeCoordsValue(data)) {
-      let window_parent = this.layers.find((layer) => layer.layer_name === data.layer_name);
-      if (!window_parent) return console.error("Error (this is bad, should not happen)! `window_parent` is undefined in ChangeCoords request!"); //should never happen
-      let current_coords: [number, number] = window_parent.coords[data.id];
-      let request_window = window_parent.get_member_by_id(data.id);
-      if (!request_window) return console.error("Error (this is bad, should not happen)! `request_window` is undefined in ChangeCoords request!"); //should never happen
+      let found_layer = this.layers.find((layer) => layer.layer_name === data.layer_name);
+      if (!found_layer) return console.error("Layer not found when trying to change coord of window"); //should never happen
+      let current_coords: [number, number] = found_layer.coords[data.id];
+      let request_window = found_layer.get_member_by_id(data.id);
+      if (!request_window) return console.error("Window not found when trying to change coord of window"); //should never happen
       if (data.stick_bottom) {
         data.delta_coords[1] = document.body.clientHeight * SCALE - request_window.size[1] - current_coords[1];
       }
@@ -831,15 +873,16 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       //windows cannot be dragged off the screen
       const new_coords: [number, number] = [current_coords[0] + data.delta_coords[0], current_coords[1] + data.delta_coords[1]];
       if (isWindow(request_window) && (new_coords[0] < -request_window.size[0] + 25 * SCALE || new_coords[0] > this.size[0] - 25 * SCALE || new_coords[1] < 0 || new_coords[1] > this.size[1] - TASKBAR_HEIGHT - WINDOW_TOP_HEIGHT)) return;
-      window_parent.change_member_coords(data.id, new_coords);
+      found_layer.change_member_coords(data.id, new_coords);
     } else if (request === WindowRequest.FocusWindow && data.trusted && isFocusWindowValue(data)) {
       this.focused_id = data.new_focus;
-      this.layers.find((layer) => layer.members.find((member) => member.id === data.new_focus)).move_member_top(data.new_focus);
+      let found_layer = this.layers.find((layer) => layer.members.find((member) => member.id === data.new_focus));
+      if (!found_layer) throw Error("Layer not found when trying to focus window");
+      found_layer.move_member_top(data.new_focus);
       this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
         member.handle_message_window(TaskbarMessageStandard.WindowFocusChange, this.focused_id);
       });
     } else if (request === WindowRequest.OpenWindow && data.trusted && isOpenWindowValue(data)) {
-      //todo: permission system
       let r_info = this.registry[data.name];
       if (r_info) {
         if (data.open_layer_name === "") {
@@ -848,15 +891,15 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         let found_layer = this.layers.find((layer) => layer.layer_name === data.open_layer_name);
         if (found_layer) {
           if (data.unique) {
-            let found_same_instance = found_layer.members.find((member) => member instanceof r_info[0]);
+            let found_same_instance = found_layer.members.find((member) => member instanceof r_info.class);
             if (found_same_instance) return;
           }
           let member;
           try {
-            if (r_info[1].length === 0 && data.args) {
-              member = new (r_info[0])(...data.args);
+            if (r_info.args.length === 0 && data.args) {
+              member = new (r_info.class)(...data.args);
             } else {
-              member = new (r_info[0])(...r_info[1]);
+              member = new (r_info.class)(...r_info.args);
             }
           } catch (e) {
             console.error(e);
@@ -894,10 +937,48 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       }
     } else if (request === WindowRequest.ChangeTheme && isChangeThemeValue(data) && data.id === this.focused_id) {
       if (this.theme === data.new_theme) return;
-      //permission system?
-      //
-      this.theme = data.new_theme;
-      this.windows.forEach(([member, _coords]) => member.handle_message_window(WindowMessage.ChangeTheme, data.new_theme));
+      //permission system
+      if (this.permissions[data.id]?.change_theme) {
+        this.theme = data.new_theme;
+        this.windows.forEach(([member, _coords]) => member.handle_message_window(WindowMessage.ChangeTheme, data.new_theme));
+      } else {
+        //open allow box that asks user for permission
+        let r_info = this.registry["allow-box"];
+        if (r_info) {
+          let allow_box = new (r_info.class)(data.id, "change_theme", () => {
+            //change permission (todo: this should be message to be more elm like)
+            if (this.permissions[data.id]) {
+              this.permissions[data.id].change_theme = true;
+            } else {
+              this.permissions[data.id] = {
+                change_theme: true,
+              };
+            }
+            //resend request
+            this.handle_request(request, data);
+          });
+          let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
+          if (start_coords[1] < 0) {
+            start_coords[1] = 0;
+          }
+          let found_layer = this.layers.find((l) => l.windows_only);
+          if (found_layer) {
+            found_layer.add_member(allow_box, start_coords);
+          } else {
+            throw Error("Could not find windows layer when adding allow box");
+          }
+        } else {
+          throw Error("Could not find allow box in registry");
+        }
+        return;
+      }
+    } else if (request === WindowRequest.FullscreenWindow) {
+      let found_layer = this.layers.find((layer) => layer.layer_name === data.layer_name);
+      if (!found_layer) return console.error("Layer not found when trying to change coord of window"); //should never happen
+      found_layer.change_member_coords(data.id, [0, 0]);
+      let request_window = found_layer.get_member_by_id(data.id);
+      if (!request_window || !isWindow(request_window)) return console.error("Window not found when trying to change coord of window"); //should never happen
+      request_window.handle_message_window(WindowMessage.WindowResize, [this.size[0], this.size[1] - TASKBAR_HEIGHT]);
     } else {
       return;
     }

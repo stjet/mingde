@@ -17,8 +17,7 @@ export enum AlertBoxMessage {
 
 export class AlertBox extends Window<AlertBoxMessage> {
   constructor(title: string, message: string) {
-    super(alert_box_size, title, "alert-box");
-    this.resizable = false;
+    super(alert_box_size, title, "alert-box", false);
     this.layers = [new Layer(this, "alert-body")];
     this.layers[0].add_member(new Paragraph(this, message, [margin, WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE], "text_primary", "NORMAL", alert_box_size[0] - margin * 2));
     const button_height: number = 22;

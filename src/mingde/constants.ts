@@ -1,3 +1,5 @@
+import type { WindowManagerSettings } from './mutables.js';
+
 export const VERSION: string = "wip";
 export const SCALE: number = 2; //increase resolution of canvas
 export const WINDOW_TOP_HEIGHT: number = 25 * SCALE;
@@ -13,22 +15,8 @@ export const FONT_SIZES: Record<string, number> = {
   NORMAL: 13 * SCALE,
 };
 
-export type Shortcut = "close-window" | "start-menu" | `switch-${number}`;
-
-//all are alt+
-export let SHORTCUTS: Record<Shortcut, string[]> = {
-  "close-window": ["w", "q"],
-  "start-menu": ["Control"],
-  "switch-0": ["1"],
-  "switch-1": ["2"],
-  "switch-2": ["3"],
-  "switch-3": ["4"],
-  "switch-4": ["5"],
-  "switch-5": ["6"],
-  "switch-6": ["7"],
-  "switch-7": ["8"],
-  "switch-8": ["9"],
-  "switch-9": ["0"],
+export const DEFAULT_WM_SETTINGS: WindowManagerSettings = {
+  shortcuts: true,
 };
 
 export const CONFIG = {

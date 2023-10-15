@@ -33,6 +33,7 @@ export class TextLine<MessageType> implements Component<MessageType> {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
     this.parent.context.font = `${this.bold ? "bold " : ""}${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
     this.parent.context.fillStyle = theme_info[this.color];
+    this.parent.context.textBaseline = "bottom";
     if (this.max_width && this.ellipsis) {
       let measured_width: number = this.parent.context.measureText(this.text).width;
       if (measured_width > this.max_width) {

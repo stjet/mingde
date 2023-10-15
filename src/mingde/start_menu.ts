@@ -84,13 +84,13 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
         this.handle_message_window(StartMenuMessage.BackCategories, Object.values(ApplicationCategories)[i]);
       }));
       //add registered windows in the category
-      let in_category = Object.values(this.registry).filter((registered) => registered[3] === Object.values(ApplicationCategories)[i]);
+      let in_category = Object.values(this.registry).filter((registered) => registered.category === Object.values(ApplicationCategories)[i]);
       for (let j = 0; j < in_category.length; j++) {
         //todo: what happens if there are too many registered windows to fit?
-        this.layers[2 + i].add_member(new HighlightButton(this, in_category[j][2], [(padding + START_MENU_VWIDTH) / SCALE, height * (j + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
+        this.layers[2 + i].add_member(new HighlightButton(this, in_category[j].display_name, [(padding + START_MENU_VWIDTH) / SCALE, height * (j + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
           //todo: send request to open that window
           this.send_request(WindowRequest.OpenWindow, {
-            name: in_category[j][4],
+            name: in_category[j].name,
             open_layer_name: "windows",
             unique: false,
           }, this.secret);

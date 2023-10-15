@@ -6,6 +6,7 @@ import { WINDOW_TOP_HEIGHT, FONT_SIZES, SCALE } from '../constants.js';
 
 import { TextLine } from '../components/text_line.js';
 import { Carousel } from '../components/carousel.js';
+import { Checkbox } from '../components/checkbox.js';
 
 /*
 ideas for settings:
@@ -30,10 +31,11 @@ export class Settings extends Window<SettingsMessage> {
   constructor(size: [number, number]) {
     super(size, "Settings", "settings");
     this.layers = [new Layer(this, "body")];
-    this.layers[0].add_member(new TextLine(this, "Themes:", [margin, margin + WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE], "text_primary", "NORMAL", 50, true, false));
-    this.layers[0].add_member(new Carousel(this, [margin + 50, margin + WINDOW_TOP_HEIGHT / SCALE], 4, 60, () => this.cached_theme, () => {
+    const top_y: number = margin + WINDOW_TOP_HEIGHT / SCALE;
+    //theme change
+    this.layers[0].add_member(new TextLine(this, "Themes:", [margin, top_y + FONT_SIZES.NORMAL / SCALE + 4], "text_primary", "NORMAL", 50, true, false));
+    this.layers[0].add_member(new Carousel(this, [margin + 50, top_y], 4, 60, () => this.cached_theme, () => {
       let index: number = Object.values(Themes).indexOf(this.cached_theme) - 1;
-      console.log(index)
       if (index < 0) {
         index = Object.values(Themes).length - 1;
       }
@@ -48,6 +50,15 @@ export class Settings extends Window<SettingsMessage> {
       this.send_request(WindowRequest.ChangeTheme, {
         new_theme: THEMES_LIST[index],
       });
+    }));
+    //checkbox to disable shortcuts
+    this.layers[0].add_member(new TextLine(this, "Uncheck to disable *most* keyboard shortcuts:", [margin, top_y + (FONT_SIZES.NORMAL * 2) / SCALE + 12], "text_primary", "NORMAL", undefined, true, false));
+    //placeholder for testing
+    let a: boolean = true;
+    this.layers[0].add_member(new Checkbox(this, [margin, top_y + (FONT_SIZES.NORMAL * 2) / SCALE + 20], 13, () => a, () => {
+      a = false;
+    }, () => {
+      a = true;
     }));
     //
   }

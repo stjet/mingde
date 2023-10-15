@@ -3,11 +3,11 @@ import { DesktopBackground } from './mingde/desktop_background.js';
 import { Taskbar } from './mingde/taskbar.js';
 import { AlertBox } from './mingde/windows/alert_box.js';
 import { registry } from './mingde/registry.js';
-import { TASKBAR_HEIGHT, SCALE } from './mingde/constants.js'
+import { TASKBAR_HEIGHT, SCALE, DEFAULT_WM_SETTINGS } from './mingde/constants.js'
 
 //is this needed? idk
 (() => {
-  let wm = new WindowManager("canvas-container", registry, true);
+  let wm = new WindowManager("canvas-container", registry, {}, DEFAULT_WM_SETTINGS, true);
 
   wm.set_layers([new Layer(wm, "desktop"), new Layer(wm, "windows", true), new Layer(wm, "taskbar")]);
 
