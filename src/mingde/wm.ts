@@ -1,6 +1,6 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
-import { WINDOW_MIN_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
@@ -24,6 +24,7 @@ export enum WindowMessage {
   WindowAdd = "WindowAdd",
   WindowRemove = "WindowRemove",
   WindowResize = "WindowResize",
+  SettingsChange = "SettingsChange", //change of window manager settings, only sent to select windows. Don't confuse WindowRequest.ChangeSettings with this
 }
 
 export enum TaskbarMessageStandard {
@@ -75,20 +76,21 @@ export interface WindowChangeEvent extends Event {
 }
 
 export interface WindowMessageValues {
-  [WindowMessage.KeyDown]: KeyboardEvent,
-  [WindowMessage.MouseMove]: MouseEvent,
-  [WindowMessage.MouseDown]: MouseEvent,
-  [WindowMessage.MouseUp]: MouseEvent,
-  [WindowMessage.MouseLeave]: boolean,
-  [WindowMessage.ContextMenu]: MouseEvent,
-  [WindowMessage.Wheel]: WheelEvent,
-  [WindowMessage.Resize]: [number, number],
-  [WindowMessage.ChangeTheme]: Themes,
-  [WindowMessage.MouseMoveOutside]: MouseEvent,
-  [WindowMessage.MouseUpOutside]: boolean,
-  [WindowMessage.WindowAdd]: WindowChangeEvent,
-  [WindowMessage.WindowRemove]: WindowChangeEvent,
-  [WindowMessage.WindowResize]: [number, number],
+  [WindowMessage.KeyDown]: KeyboardEvent;
+  [WindowMessage.MouseMove]: MouseEvent;
+  [WindowMessage.MouseDown]: MouseEvent;
+  [WindowMessage.MouseUp]: MouseEvent;
+  [WindowMessage.MouseLeave]: boolean;
+  [WindowMessage.ContextMenu]: MouseEvent;
+  [WindowMessage.Wheel]: WheelEvent;
+  [WindowMessage.Resize]: [number, number];
+  [WindowMessage.ChangeTheme]: Themes;
+  [WindowMessage.MouseMoveOutside]: MouseEvent;
+  [WindowMessage.MouseUpOutside]: boolean;
+  [WindowMessage.WindowAdd]: WindowChangeEvent;
+  [WindowMessage.WindowRemove]: WindowChangeEvent;
+  [WindowMessage.WindowResize]: [number, number];
+  [WindowMessage.SettingsChange]: boolean; //can ignore
 }
 
 export enum WindowLikeType {
@@ -101,6 +103,7 @@ export enum WindowLikeType {
 export interface WindowOptions {
   desktop_background_info: DesktopBackgroundInfo<DesktopBackgroundTypes>;
   time: DesktopTime,
+  settings: WindowManagerSettings,
 }
 
 export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component<any>> {
@@ -124,6 +127,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
   readonly render_view_window: (theme: Themes) => void;
   readonly handle_message_window: (message: MessageType | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
+  cached_settings: WindowManagerSettings;
 
   private top_components: Component<MessageType | WindowMessage>[];
   private secret: string;
@@ -365,13 +369,15 @@ export class Window<MessageType> implements WindowLike<MessageType> {
         }
       } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
         if (data.altKey) {
-          //keyboard shortcuts
-          if (SHORTCUTS["close-window"].includes(data.key)) {
-            //close window
-            this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
-          } else if (SHORTCUTS["fullscreen-window"].includes(data.key) && this.resizable) {
-            this.send_request(WindowRequest.FullscreenWindow, {}, this.secret);
-            this.do_rerender = true;
+          if (this.cached_settings.shortcuts) {
+            //keyboard shortcuts
+            if (SHORTCUTS["close-window"].includes(data.key)) {
+              //close window
+              this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
+            } else if (SHORTCUTS["fullscreen-toggle-window"].includes(data.key) && this.resizable) {
+              this.send_request(WindowRequest.FullscreenToggleWindow, {}, this.secret);
+              this.do_rerender = true;
+            }
           }
         } else {
           propogate_down = true;
@@ -388,6 +394,9 @@ export class Window<MessageType> implements WindowLike<MessageType> {
         this.canvas.height = this.size[1];
         this.top_components = create_top_components();
         this.do_rerender = true;
+      } else if (message === WindowMessage.SettingsChange) {
+        //only sent to windows with permission to change settings
+        this.do_rerender = true;
       }
       if (propogate_down) {
         this.handle_message(message, data);
@@ -395,8 +404,11 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       return this.do_rerender;
     }
     //this will draw the window, top bar, etc, and also call the arbitary render function
-    this.render_view_window = (theme: Themes) => {
+    this.render_view_window = (theme: Themes, options?: WindowOptions) => {
       if (!this.do_rerender) return;
+      if (options?.settings) {
+        this.cached_settings = options.settings;
+      }
       this.clear();
       //draw window background
       this.context.fillStyle = THEME_INFOS[theme].background;
@@ -576,6 +588,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       //default desktop background
       desktop_background_info: [DesktopBackgroundTypes.Solid, "#008080"],
       time: get_time(),
+      settings,
     };
     this.registry = registry;
     this.permissions = permissions;
@@ -658,6 +671,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.clear();
     //update time
     this.options.time = get_time();
+    //update settings
+    this.options.settings = this.settings;
     //copied in case windows get deleted
     const windows = this.windows; //.slice()
     for (let i = 0; i < windows.length; i++) {
@@ -851,6 +866,10 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           member.handle_message_window(TaskbarMessageStandard.StartMenuClosed, true);
         });
       }
+      //remove any permission info
+      if (this.permissions[data.id]) {
+        delete this.permissions[data.id];
+      }
     } else if (request === WindowRequest.ChangeCursor && data.trusted && isChangeCursorValue(data)) {
       if (this.canvas.style.cursor === data.new_cursor) return;
       this.canvas.style.cursor = data.new_cursor;
@@ -972,13 +991,61 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         }
         return;
       }
-    } else if (request === WindowRequest.FullscreenWindow) {
+    } else if (request === WindowRequest.FullscreenToggleWindow) {
       let found_layer = this.layers.find((layer) => layer.layer_name === data.layer_name);
       if (!found_layer) return console.error("Layer not found when trying to change coord of window"); //should never happen
       found_layer.change_member_coords(data.id, [0, 0]);
       let request_window = found_layer.get_member_by_id(data.id);
       if (!request_window || !isWindow(request_window)) return console.error("Window not found when trying to change coord of window"); //should never happen
-      request_window.handle_message_window(WindowMessage.WindowResize, [this.size[0], this.size[1] - TASKBAR_HEIGHT]);
+      if (request_window.size[0] === this.size[0] && request_window.size[1]) {
+        request_window.handle_message_window(WindowMessage.WindowResize, WINDOW_DEFAULT_DIMENSIONS);
+      } else {
+        request_window.handle_message_window(WindowMessage.WindowResize, [this.size[0], this.size[1] - TASKBAR_HEIGHT]);
+      }
+    } else if (request === WindowRequest.ChangeSettings && isChangeSettingsValue(data) && data.id === this.focused_id) {
+      if (this.permissions[data.id]?.change_settings) {
+        //change them settings
+        for (let i = 0; i < Object.keys(data.changed_settings).length; i++) {
+          let settings_key = Object.keys(data.changed_settings)[i];
+          this.settings[settings_key] = data.changed_settings[settings_key];
+        }
+        Object.keys(this.permissions).filter((p_id) => this.permissions[p_id].change_settings).forEach((p_id) => {
+          let window_w_perm = this.get_window_by_id(p_id);
+          if (window_w_perm) {
+            window_w_perm.handle_message_window(WindowMessage.SettingsChange, true);
+          }
+        });
+      } else {
+        //open allow box that asks user for permission
+        let r_info = this.registry["allow-box"];
+        if (r_info) {
+          let allow_box = new (r_info.class)(data.id, "change_settings", () => {
+            //change permission (todo: this should be message to be more elm like)
+            if (this.permissions[data.id]) {
+              this.permissions[data.id].change_settings = true;
+            } else {
+              this.permissions[data.id] = {
+                change_settings: true,
+              };
+            }
+            //resend request
+            this.handle_request(request, data);
+          });
+          let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
+          if (start_coords[1] < 0) {
+            start_coords[1] = 0;
+          }
+          let found_layer = this.layers.find((l) => l.windows_only);
+          if (found_layer) {
+            found_layer.add_member(allow_box, start_coords);
+          } else {
+            throw Error("Could not find windows layer when adding allow box");
+          }
+        } else {
+          throw Error("Could not find allow box in registry");
+        }
+        return;
+      }
     } else {
       return;
     }

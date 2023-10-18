@@ -7,7 +7,7 @@ import { Background } from '../components/background.js';
 import { TextLine } from '../components/text_line.js';
 import { Button } from '../components/button.js';
 
-export enum MinesweeperMessage {
+enum MinesweeperMessage {
   NewGame, //hide modals, gen new tiles and stuff
 }
 

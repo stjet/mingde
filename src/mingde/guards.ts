@@ -1,7 +1,8 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEMES_LIST } from './themes.js';
-import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, CursorType } from './requests.js';
+import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
+import { SETTINGS_KEYS } from './mutables.js';
 
 //maybe these should all just be inlined instead of in this file?
 
@@ -29,6 +30,11 @@ export function isUIEvent(event: any): event is UIEvent {
 
 export function isCoords(maybe_coords: any): maybe_coords is [number, number] {
   if (typeof maybe_coords?.[0] === "number" && typeof maybe_coords?.[1] === "number" && maybe_coords?.length === 2) return true;
+  return false;
+}
+
+export function hasText(maybe_has_text: any): maybe_has_text is { text: string } {
+  if (typeof maybe_has_text?.text === "string") return true;
   return false;
 }
 
@@ -77,6 +83,18 @@ export function isOpenWindowValue(maybe_open_window: any): maybe_open_window is 
 export function isChangeThemeValue(maybe_change_theme: any): maybe_change_theme is ChangeThemeValue {
   if (THEMES_LIST.includes(maybe_change_theme?.new_theme)) return true;
   return false;
+}
+
+export function isChangeSettingsValue(maybe_change_settings: any): maybe_change_settings is ChangeSettingsValue {
+  if (!maybe_change_settings?.changed_settings) return false;
+  let settings = maybe_change_settings.changed_settings;
+  for (let i = 0; i < Object.keys(settings).length; i++) {
+    let found_index: number = SETTINGS_KEYS.findIndex((k) => k[0] === Object.keys(settings)[i]);
+    if (found_index === -1) return false; //non-settings key not found
+    //check type
+    if (typeof Object.values(settings)[i] !== SETTINGS_KEYS[found_index][1]) return false;
+  }
+  return true;
 }
 
 //typescript doesn't autodetect that render_view_window exists on Window? idk why, hope this doesn't cause any problems

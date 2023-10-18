@@ -8,6 +8,7 @@ export const START_MENU_SIZE: [number, number] = [175 * SCALE, 250 * SCALE];
 export const START_MENU_VWIDTH: number = (42 - 5) * SCALE; //width of the vertical strip
 export const FONT_NAME: string = "Times New Roman";
 export const WINDOW_MIN_DIMENSIONS: [number, number] = [100 * SCALE, 100 * SCALE];
+export const WINDOW_DEFAULT_DIMENSIONS: [number, number] = [300 * SCALE, 200 * SCALE]; //mostly applies when toggling fullscreen
 export const FONT_SIZES: Record<string, number> = {
   HEADING: 20 * SCALE,
   TOP: 16 * SCALE,

@@ -3,9 +3,11 @@ import { AlertBox } from './windows/alert_box.js';
 import { AllowBox } from './windows/allow_box.js';
 import { Settings } from './windows/settings.js';
 import { Minesweeper } from './windows/minesweeper.js';
+import { Reversi } from './windows/reversi.js';
 
 export interface Permission {
   change_theme?: boolean;
+  change_settings?: boolean;
   //
 }
 
@@ -55,7 +57,14 @@ export const registry: Registry = {
     args: [],
     display_name: "Minesweeper",
     category: ApplicationCategories.Games,
-    name: "minesweeper"
+    name: "minesweeper",
+  },
+  "reversi": {
+    class: Reversi,
+    args: [],
+    display_name: "Reversi",
+    category: ApplicationCategories.Games,
+    name: "reversi",
   },
 };
 

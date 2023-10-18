@@ -11,7 +11,7 @@ const alert_box_size: [number, number] = [280, 120];
 const button_width: number = 75;
 const margin: number = 20;
 
-export enum AlertBoxMessage {
+enum AlertBoxMessage {
   //
 }
 

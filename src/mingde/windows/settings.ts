@@ -21,7 +21,7 @@ ideas for settings:
 
 const margin: number = 10;
 
-export enum SettingsMessage {
+enum SettingsMessage {
   //
 }
 
@@ -52,13 +52,20 @@ export class Settings extends Window<SettingsMessage> {
       });
     }));
     //checkbox to disable shortcuts
-    this.layers[0].add_member(new TextLine(this, "Uncheck to disable *most* keyboard shortcuts:", [margin, top_y + (FONT_SIZES.NORMAL * 2) / SCALE + 12], "text_primary", "NORMAL", undefined, true, false));
+    this.layers[0].add_member(new TextLine(this, "Uncheck to disable keyboard shortcuts:", [margin, top_y + (FONT_SIZES.NORMAL * 2) / SCALE + 12], "text_primary", "NORMAL", undefined, true, false));
     //placeholder for testing
-    let a: boolean = true;
-    this.layers[0].add_member(new Checkbox(this, [margin, top_y + (FONT_SIZES.NORMAL * 2) / SCALE + 20], 13, () => a, () => {
-      a = false;
+    this.layers[0].add_member(new Checkbox(this, [margin, top_y + (FONT_SIZES.NORMAL * 2) / SCALE + 20], 13, () => this.cached_settings?.shortcuts, () => {
+      this.send_request(WindowRequest.ChangeSettings, {
+        changed_settings: {
+          shortcuts: false,
+        },
+      });
     }, () => {
-      a = true;
+      this.send_request(WindowRequest.ChangeSettings, {
+        changed_settings: {
+          shortcuts: true,
+        },
+      });
     }));
     //
   }

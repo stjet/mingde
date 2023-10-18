@@ -1,14 +1,16 @@
 import type { Themes } from './themes.js';
+import type { WindowManagerSettings } from './mutables.js';
 
 //requests are messages but propogate up from windowlike to wm
 export enum WindowRequest {
   CloseWindow = "CloseWindow", //or windowlike
   OpenWindow = "OpenWindow", //or windowlike
   FocusWindow = "FocusWindow",
-  FullscreenWindow = "FullscreenWindow",
+  FullscreenToggleWindow = "FullscreenToggleWindow",
   ChangeCursor = "ChangeCursor",
   ChangeCoords = "ChangeCoords",
   ChangeTheme = "ChangeTheme", //also a WindowMessage called this, that won't be confusing at all...
+  ChangeSettings = "ChangeSettings",
 }
 
 //should be extended if requests need additional values, eg, OpenWindow request needs to know what window to open
@@ -54,13 +56,18 @@ export interface ChangeThemeValue extends WindowRequestValue {
   new_theme: Themes;
 }
 
+export interface ChangeSettingsValue extends WindowRequestValue {
+  changed_settings: WindowManagerSettings, //just the changed settings
+}
+
 export interface WindowRequestValues {
   [WindowRequest.CloseWindow]: WindowRequestValue,
   [WindowRequest.OpenWindow]: OpenWindowValue,
   [WindowRequest.FocusWindow]: FocusWindowValue,
-  [WindowRequest.FullscreenWindow]: WindowRequestValue,
+  [WindowRequest.FullscreenToggleWindow]: WindowRequestValue,
   [WindowRequest.ChangeCursor]: ChangeCursorValue,
   [WindowRequest.ChangeCoords]: ChangeCoordsValue,
   [WindowRequest.ChangeTheme]: ChangeThemeValue,
+  [WindowRequest.ChangeSettings]: ChangeSettingsValue,
 }
 

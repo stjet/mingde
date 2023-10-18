@@ -1,11 +1,11 @@
 //like constants.ts but not constants
 
-export type Shortcut = "close-window" | "fullscreen-window" | "start-menu" | `switch-${number}` | "cycle-left" | "cycle-right";
+export type Shortcut = "close-window" | "fullscreen-toggle-window" | "start-menu" | `switch-${number}` | "cycle-left" | "cycle-right";
 
 //all are alt+
 export let SHORTCUTS: Record<Shortcut, string[]> = {
   "close-window": ["w", "q"],
-  "fullscreen-window": ["f"],
+  "fullscreen-toggle-window": ["f"],
   "start-menu": ["Control"],
   "switch-0": ["1"],
   "switch-1": ["2"],
@@ -25,4 +25,6 @@ export interface WindowManagerSettings {
   shortcuts: boolean; //keyboard shortcuts enabled/disabled
   //
 }
+
+export const SETTINGS_KEYS: [string, string][] = [["shortcuts", "boolean"]];
 

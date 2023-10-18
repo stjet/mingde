@@ -13,7 +13,7 @@ const allow_box_size: [number, number] = [280, 120];
 const button_width: number = 75;
 const margin: number = 20;
 
-export enum AllowBoxMessage {
+enum AllowBoxMessage {
   //
 }
 
@@ -30,12 +30,13 @@ export class AllowBox extends Window<AllowBoxMessage> {
     this.layers = [new Layer(this, "alert-body")];
     this.layers[0].add_member(new Paragraph(this, `Window with id ${this.id_perm} wants to ask for permission ${this.permission}`, [margin, WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE], "text_primary", "NORMAL", allow_box_size[0] - margin * 2));
     const button_height: number = 22;
-    this.layers[0].add_member(new Button(this, "Allow", [allow_box_size[0] / 2 - button_width - 10, allow_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
-      this.allow_func();
+    this.layers[0].add_member(new Button(this, "Deny", [allow_box_size[0] / 2 - button_width - 10, allow_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
       this.send_request(WindowRequest.CloseWindow, {});
     }));
-    this.layers[0].add_member(new Button(this, "Deny", [allow_box_size[0] / 2 + 10, allow_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
+    this.layers[0].add_member(new Button(this, "Allow", [allow_box_size[0] / 2 + 10, allow_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
       this.send_request(WindowRequest.CloseWindow, {});
+      //allow func has to be called after CloseWindow so the focused_id changes back to the old window
+      this.allow_func();
     }));
   }
   get components(): Component<AllowBoxMessage | WindowMessage>[] {
