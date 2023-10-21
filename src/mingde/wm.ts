@@ -1,7 +1,7 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
 import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
-import { SHORTCUTS, WindowManagerSettings } from './mutables.js';
+import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
 import type { Registry, Permissions } from './registry.js';
@@ -25,6 +25,7 @@ export enum WindowMessage {
   WindowRemove = "WindowRemove",
   WindowResize = "WindowResize",
   SettingsChange = "SettingsChange", //change of window manager settings, only sent to select windows. Don't confuse WindowRequest.ChangeSettings with this
+  GenericShortcut = "GenericShortcut", //generic shortcut like up or down sent to windows
 }
 
 export enum TaskbarMessageStandard {
@@ -91,6 +92,7 @@ export interface WindowMessageValues {
   [WindowMessage.WindowRemove]: WindowChangeEvent;
   [WindowMessage.WindowResize]: [number, number];
   [WindowMessage.SettingsChange]: boolean; //can ignore
+  [WindowMessage.GenericShortcut]: GenericShortcut;
 }
 
 export enum WindowLikeType {
@@ -377,6 +379,10 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             } else if (SHORTCUTS["fullscreen-toggle-window"].includes(data.key) && this.resizable) {
               this.send_request(WindowRequest.FullscreenToggleWindow, {}, this.secret);
               this.do_rerender = true;
+            } else if (SHORTCUTS["up"].includes(data.key)) {
+              this.handle_message(WindowMessage.GenericShortcut, "up");
+            } else if (SHORTCUTS["down"].includes(data.key)) {
+              this.handle_message(WindowMessage.GenericShortcut, "down");
             }
           }
         } else {

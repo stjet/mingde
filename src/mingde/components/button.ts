@@ -23,8 +23,9 @@ export class Button<MessageType> implements Component<MessageType> {
   bold: boolean;
   inverted: boolean;
   alignment: Alignment;
+  small: boolean;
 
-  constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], width: number, padding_y: number, click_func: () => void, bold: boolean = false, inverted: boolean = false, alignment: Alignment = Alignment.Centre) {
+  constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], width: number, padding_y: number, click_func: () => void, bold: boolean = false, inverted: boolean = false, alignment: Alignment = Alignment.Centre, small: boolean = false) {
     //I am not a fan of parameter properties
     this.id = `${parent.id}-${this.type}-random-${Math.floor(Math.random() * 10000)}`; //dumb, but placeholder, kinda
     this.parent = parent;
@@ -32,17 +33,18 @@ export class Button<MessageType> implements Component<MessageType> {
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
     this.width = width * SCALE;
     this.padding_y = padding_y * SCALE;
-    this.size = [this.width, padding_y * 2 + FONT_SIZES.BUTTON];
+    this.size = [this.width, padding_y * 2 + (this.small ? FONT_SIZES.BUTTON_SMALL : FONT_SIZES.BUTTON)];
     this.click_func = click_func;
     this.bold = bold;
     this.inverted = inverted;
     this.alignment = alignment;
+    this.small = small;
   }
   render_view(theme: Themes) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
-    this.parent.context.font = `${this.bold ? "bold " : ""}${FONT_SIZES.BUTTON}px ${FONT_NAME}`;
+    this.parent.context.font = `${this.bold ? "bold " : ""}${ this.small ? FONT_SIZES.BUTTON_SMALL : FONT_SIZES.BUTTON }px ${FONT_NAME}`;
     const measured = this.parent.context.measureText(this.text);
-    const height = this.padding_y * 2 + FONT_SIZES.BUTTON;
+    const height = this.padding_y * 2 + (this.small ? FONT_SIZES.BUTTON_SMALL : FONT_SIZES.BUTTON);
     //draw button background
     this.parent.context.fillStyle = theme_info.background;
     this.parent.context.fillRect(this.coords[0], this.coords[1], this.width, height);

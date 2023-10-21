@@ -6,6 +6,9 @@ export const WINDOW_TOP_HEIGHT: number = 25 * SCALE;
 export const TASKBAR_HEIGHT: number = 38 * SCALE;
 export const START_MENU_SIZE: [number, number] = [175 * SCALE, 250 * SCALE];
 export const START_MENU_VWIDTH: number = (42 - 5) * SCALE; //width of the vertical strip
+export const SCROLLBAR_WIDTH: number = 15 * SCALE;
+export const SCROLLBAR_BUTTON_HEIGHT: number = 15 * SCALE;
+export const SCROLL_DISTANCE: number = 5 * SCALE;
 export const FONT_NAME: string = "Times New Roman";
 export const WINDOW_MIN_DIMENSIONS: [number, number] = [100 * SCALE, 100 * SCALE];
 export const WINDOW_DEFAULT_DIMENSIONS: [number, number] = [300 * SCALE, 200 * SCALE]; //mostly applies when toggling fullscreen
@@ -13,6 +16,7 @@ export const FONT_SIZES: Record<string, number> = {
   HEADING: 20 * SCALE,
   TOP: 16 * SCALE,
   BUTTON: 16 * SCALE,
+  BUTTON_SMALL: 13 * SCALE,
   NORMAL: 13 * SCALE,
 };
 

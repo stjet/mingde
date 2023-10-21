@@ -4,6 +4,7 @@ import { AllowBox } from './windows/allow_box.js';
 import { Settings } from './windows/settings.js';
 import { Minesweeper } from './windows/minesweeper.js';
 import { Reversi } from './windows/reversi.js';
+import { Shortcuts } from './windows/shortcuts.js';
 
 export interface Permission {
   change_theme?: boolean;
@@ -51,6 +52,13 @@ export const registry: Registry = {
     display_name: "Settings",
     category: ApplicationCategories.System,
     name: "settings",
+  },
+  "shortcuts": {
+    class: Shortcuts,
+    args: [[300, 200]],
+    display_name: "Shortcuts",
+    category: ApplicationCategories.System,
+    name: "shortcuts",
   },
   "minesweeper": {
     class: Minesweeper,
