@@ -10,7 +10,8 @@
     "dev": "tsc -w -p . --preserveWatchOutput & npm run server",
     "build": "tsc -p . && ./node_modules/.bin/esbuild index.js --bundle --minify --outfile=index.js --allow-overwrite",
     "strict": "tsc -p ./strict_tsconfig.json",
-    "loc": "git ls-files | grep '\\.ts' | xargs wc -l"
+    "loc": "git ls-files | grep '\\.ts' | xargs wc -l",
+    "safe": "grep -nr -e 'document' -e 'getContext' -e 'children' ./mingde/windows | grep . && echo 'possible issues found' || echo 'nothing found, you are still advised to read any third-party code yourself'"
   },
   "repository": {
     "type": "git",

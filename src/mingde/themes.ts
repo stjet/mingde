@@ -29,8 +29,11 @@ export interface ThemeInfo {
   highlight: string;
   text_highlight: string;
   background: string;
+  alt_background: string; //used for terminal
+  alt_text: string; //used for terminal
   border_left_top: string;
   border_right_bottom: string;
+  
 }
 
 export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
@@ -41,6 +44,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "blue",
     text_highlight: "white",
     background: "#c0c0c0",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -51,6 +56,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "blue",
     text_highlight: "white",
     background: "#222222",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -61,6 +68,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "limegreen",
     text_highlight: "white",
     background: "#c0c0c0",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -71,6 +80,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "red",
     text_highlight: "white",
     background: "#c0c0c0",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -81,6 +92,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "gray",
     text_highlight: "white",
     background: "#a0a0a0",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -91,6 +104,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "yellow",
     text_highlight: "#554348",
     background: "#ffffd8",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "#b2b3b5",
     border_right_bottom: "black",
   },
@@ -101,6 +116,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "black",
     text_highlight: "white",
     background: "black",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "white",
   },
@@ -111,6 +128,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "purple",
     text_highlight: "white",
     background: "#c0c0c0",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -121,6 +140,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     highlight: "#808000",
     text_highlight: "black",
     background: "#c0c0c0",
+    alt_background: "black",
+    alt_text: "white",
     border_left_top: "white",
     border_right_bottom: "black",
   },

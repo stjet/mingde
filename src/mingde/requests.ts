@@ -1,5 +1,7 @@
 import type { Themes } from './themes.js';
 import type { WindowManagerSettings } from './mutables.js';
+import type { FILE_SYSTEM_PERMISSIONS } from './registry.js';
+import type { Path } from './fs.js';
 
 //requests are messages but propogate up from windowlike to wm
 export enum WindowRequest {
@@ -11,6 +13,7 @@ export enum WindowRequest {
   ChangeCoords = "ChangeCoords",
   ChangeTheme = "ChangeTheme", //also a WindowMessage called this, that won't be confusing at all...
   ChangeSettings = "ChangeSettings",
+  ReadFileSystem = "ReadFileSystem",
 }
 
 //should be extended if requests need additional values, eg, OpenWindow request needs to know what window to open
@@ -25,9 +28,9 @@ export interface OpenWindowValue extends WindowRequestValue {
   open_layer_name: string; //layer to open the windowlike in
   unique: boolean; //if true, do not open window if already exists
   coords_offset?: [number, number]; //optionally, specify the new windowlike's coords, relative to the windowlike that opened it
-  sub_size_x?: boolean,
-  sub_size_y?: boolean,
-  args?: any[],
+  sub_size_x?: boolean;
+  sub_size_y?: boolean;
+  args?: any[];
 }
 
 export interface FocusWindowValue extends WindowRequestValue {
@@ -57,17 +60,23 @@ export interface ChangeThemeValue extends WindowRequestValue {
 }
 
 export interface ChangeSettingsValue extends WindowRequestValue {
-  changed_settings: WindowManagerSettings, //just the changed settings
+  changed_settings: WindowManagerSettings; //just the changed settings
+}
+
+export interface ReadFileSystemValue extends WindowRequestValue {
+  permission_type: FILE_SYSTEM_PERMISSIONS;
+  path: Path;
 }
 
 export interface WindowRequestValues {
-  [WindowRequest.CloseWindow]: WindowRequestValue,
-  [WindowRequest.OpenWindow]: OpenWindowValue,
-  [WindowRequest.FocusWindow]: FocusWindowValue,
-  [WindowRequest.FullscreenToggleWindow]: WindowRequestValue,
-  [WindowRequest.ChangeCursor]: ChangeCursorValue,
-  [WindowRequest.ChangeCoords]: ChangeCoordsValue,
-  [WindowRequest.ChangeTheme]: ChangeThemeValue,
-  [WindowRequest.ChangeSettings]: ChangeSettingsValue,
+  [WindowRequest.CloseWindow]: WindowRequestValue;
+  [WindowRequest.OpenWindow]: OpenWindowValue;
+  [WindowRequest.FocusWindow]: FocusWindowValue;
+  [WindowRequest.FullscreenToggleWindow]: WindowRequestValue;
+  [WindowRequest.ChangeCursor]: ChangeCursorValue;
+  [WindowRequest.ChangeCoords]: ChangeCoordsValue;
+  [WindowRequest.ChangeTheme]: ChangeThemeValue;
+  [WindowRequest.ChangeSettings]: ChangeSettingsValue;
+  [WindowRequest.ReadFileSystem]: ReadFileSystemValue;
 }
 

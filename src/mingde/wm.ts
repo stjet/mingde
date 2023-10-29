@@ -1,10 +1,11 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
-import type { Registry, Permissions } from './registry.js';
+import type { Registry, Permissions, Permission } from './registry.js';
+import { FileSystemObject } from './fs.js';
 
 import { Button } from './components/button.js';
 import { TextLine } from './components/text_line.js';
@@ -55,6 +56,7 @@ export interface Component<MessageType> extends Elm<MessageType> {
   coords: [number, number];
   size: [number, number];
   readonly parent: WindowLike<MessageType | WindowMessage>; //readonly?
+  render_view(theme: Themes, context?: CanvasRenderingContext2D): void; //draws to the canvas
   clickable: boolean;
 }
 
@@ -116,7 +118,7 @@ export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component
   do_rerender: boolean; //if false, even if windowmanager renders everyone, do not redraw canvas (performance improvement, not currently enforced)
   layers: Layer<Component<any>>[];
   handle_message(message: MessageType | WindowMessage, data: any): void;
-  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
+  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => any;
   clear(): void; //is this needed?
 }
 
@@ -152,7 +154,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
   context: CanvasRenderingContext2D;
   layers: Layer<Component<MessageType | WindowMessage>>[];
 
-  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => void;
+  send_request: <T extends WindowRequest>(request: T, data: WindowRequestValues[T], secret?: string) => any;
 
   constructor(size: [number, number], title: string, window_type: string = "", resizable: boolean = true) {
     this.size = [size[0] * SCALE, size[1] * SCALE];
@@ -283,6 +285,8 @@ export class Window<MessageType> implements WindowLike<MessageType> {
           }
           this.canvas.width = this.size[0];
           this.top_components = create_top_components();
+          //tell extending class that resize happened
+          this.handle_message(WindowMessage.WindowResize, this.size);
           this.do_rerender = true;
         } else if (this.hresize_mode) {
           this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
@@ -290,6 +294,8 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             this.size[1] = WINDOW_MIN_DIMENSIONS[1];
           }
           this.canvas.height = this.size[1];
+          //tell extending class that resize happened
+          this.handle_message(WindowMessage.WindowResize, this.size);
           this.do_rerender = true;
         }
       } else if (message === WindowMessage.MouseUp) {
@@ -341,6 +347,8 @@ export class Window<MessageType> implements WindowLike<MessageType> {
           }
           this.canvas.width = this.size[0];
           this.top_components = create_top_components();
+          //tell extending class that resize happened
+          this.handle_message(WindowMessage.WindowResize, this.size);
           this.do_rerender = true;
         } else if (this.hresize_mode) {
           this.size[1] = this.hresize_info[1] + (data.screenY - this.hresize_info[0]);
@@ -348,6 +356,8 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             this.size[1] = WINDOW_MIN_DIMENSIONS[1];
           }
           this.canvas.height = this.size[1];
+          //tell extending class that resize happened
+          this.handle_message(WindowMessage.WindowResize, this.size);
           this.do_rerender = true;
         } else if (this.wresize_hover || this.hresize_hover) {
           this.wresize_hover = false;
@@ -384,10 +394,10 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             } else if (SHORTCUTS["down"].includes(data.key)) {
               this.handle_message(WindowMessage.GenericShortcut, "down");
             }
+            propogate_down = false;
           }
-        } else {
-          propogate_down = true;
         }
+        //propogate it down
       } else if (message === WindowMessage.ChangeTheme) {
         this.do_rerender = true;
       } else if (message === WindowMessage.WindowResize && isCoords(data) && this.resizable) {
@@ -525,7 +535,7 @@ export class Layer<MemberType extends Member> {
           data.trusted = false;
         }
         if (isWindowManager(self_layer.parent)) {
-          self_layer.parent.handle_request(request, data);
+          return self_layer.parent.handle_request(request, data);
         }
       };
     }
@@ -582,10 +592,11 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   options: WindowOptions;
   render_stop: boolean;
   registry: Registry;
+  private file_system: FileSystemObject;
   private permissions: Permissions;
   private settings: WindowManagerSettings;
 
-  constructor(parent_id: string = "", registry: Registry, permissions: Permissions, settings: WindowManagerSettings, render_stop: boolean = false, theme: Themes = Themes.Standard) {
+  constructor(registry: Registry, permissions: Permissions, settings: WindowManagerSettings, render_stop: boolean = false, theme: Themes = Themes.Standard) {
     this.total_renders = 0;
     this.size = [document.body.clientWidth * SCALE, document.body.clientHeight * SCALE];
     this.layers = [];
@@ -596,6 +607,27 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       time: get_time(),
       settings,
     };
+    this.file_system = new FileSystemObject({
+      "usr": {
+        //user's directory
+        "desktop": {
+          //
+        },
+        "documents": {
+          //
+        },
+        "downloads": {
+          //
+        },
+        "media": {
+          //
+        },
+      },
+      "prg": {
+        //programs can store stuff here
+        //
+      },
+    });
     this.registry = registry;
     this.permissions = permissions;
     this.settings = settings;
@@ -603,9 +635,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.canvas.width = this.size[0];
     this.canvas.height = this.size[1];
     this.canvas.tabIndex = 1;
-    if (parent_id) {
-      document.getElementById(parent_id)!.appendChild(this.canvas);
-    }
+    document.body.appendChild(this.canvas);
     this.context = this.canvas.getContext("2d", {
       alpha: false,
     });
@@ -855,6 +885,34 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     //`return` before this if don't want to rerender
     this.render();
   }
+  ask_permission<T extends WindowRequest>(permission: keyof Permission, request: T, data: WindowRequestValues[T]) {
+    let r_info = this.registry["allow-box"];
+    if (r_info) {
+      let allow_box = new (r_info.class)(data.id, permission, () => {
+        //change permission (todo: this should be message to be more elm like)
+        if (this.permissions[data.id]) {
+          this.permissions[data.id][permission] = true;
+        } else {
+          this.permissions[data.id] = {};
+          this.permissions[data.id][permission] = true;
+        }
+        //resend request
+        this.handle_request(request, data);
+      });
+      let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
+      if (start_coords[1] < 0) {
+        start_coords[1] = 0;
+      }
+      let found_layer = this.layers.find((l) => l.windows_only);
+      if (found_layer) {
+        found_layer.add_member(allow_box, start_coords);
+      } else {
+        throw Error("Could not find windows layer when adding allow box");
+      }
+    } else {
+      throw Error("Could not find allow box in registry");
+    }
+  }
   handle_request<T extends WindowRequest>(request: T, data: WindowRequestValues[T]) {
     if (!data.layer_name || !data.id) return;
     if (CONFIG.DEBUG.REQUESTS) {
@@ -907,7 +965,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).forEach(([member, _coords]) => {
         member.handle_message_window(TaskbarMessageStandard.WindowFocusChange, this.focused_id);
       });
-    } else if (request === WindowRequest.OpenWindow && data.trusted && isOpenWindowValue(data)) {
+    } else if (request === WindowRequest.OpenWindow && (data.trusted || this.permissions[data.id]?.open_windows) && isOpenWindowValue(data)) {
       let r_info = this.registry[data.name];
       if (r_info) {
         if (data.open_layer_name === "") {
@@ -960,6 +1018,11 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       } else {
         return;
       }
+    } else if (request === WindowRequest.OpenWindow && !this.permissions[data.id]?.open_windows && isOpenWindowValue(data)) {
+      //open allow box that asks user for permission
+      //currently unused perm
+      this.ask_permission("open_windows", request, data);
+      return;
     } else if (request === WindowRequest.ChangeTheme && isChangeThemeValue(data) && data.id === this.focused_id) {
       if (this.theme === data.new_theme) return;
       //permission system
@@ -968,33 +1031,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         this.windows.forEach(([member, _coords]) => member.handle_message_window(WindowMessage.ChangeTheme, data.new_theme));
       } else {
         //open allow box that asks user for permission
-        let r_info = this.registry["allow-box"];
-        if (r_info) {
-          let allow_box = new (r_info.class)(data.id, "change_theme", () => {
-            //change permission (todo: this should be message to be more elm like)
-            if (this.permissions[data.id]) {
-              this.permissions[data.id].change_theme = true;
-            } else {
-              this.permissions[data.id] = {
-                change_theme: true,
-              };
-            }
-            //resend request
-            this.handle_request(request, data);
-          });
-          let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
-          if (start_coords[1] < 0) {
-            start_coords[1] = 0;
-          }
-          let found_layer = this.layers.find((l) => l.windows_only);
-          if (found_layer) {
-            found_layer.add_member(allow_box, start_coords);
-          } else {
-            throw Error("Could not find windows layer when adding allow box");
-          }
-        } else {
-          throw Error("Could not find allow box in registry");
-        }
+        this.ask_permission("change_theme", request, data);
         return;
       }
     } else if (request === WindowRequest.FullscreenToggleWindow) {
@@ -1023,35 +1060,29 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         });
       } else {
         //open allow box that asks user for permission
-        let r_info = this.registry["allow-box"];
-        if (r_info) {
-          let allow_box = new (r_info.class)(data.id, "change_settings", () => {
-            //change permission (todo: this should be message to be more elm like)
-            if (this.permissions[data.id]) {
-              this.permissions[data.id].change_settings = true;
-            } else {
-              this.permissions[data.id] = {
-                change_settings: true,
-              };
-            }
-            //resend request
-            this.handle_request(request, data);
-          });
-          let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
-          if (start_coords[1] < 0) {
-            start_coords[1] = 0;
-          }
-          let found_layer = this.layers.find((l) => l.windows_only);
-          if (found_layer) {
-            found_layer.add_member(allow_box, start_coords);
-          } else {
-            throw Error("Could not find windows layer when adding allow box");
-          }
-        } else {
-          throw Error("Could not find allow box in registry");
-        }
+        this.ask_permission("change_settings", request, data);
         return;
       }
+    } else if (request === WindowRequest.ReadFileSystem && isReadFileSystemValue(data)) {
+      //check if they have permission
+      if (this.permissions[data.id]?.read_all_file_system || this.permissions[data.id]?.read_usr_file_system && data.path.startsWith("/usr") || this.permissions[data.id]?.read_prg_file_system && data.path.startsWith("/prg")) {
+        //return the stuff
+        return this.file_system.get_path_contents(data.path);
+      } else {
+        //alert box blah blah
+        if (data.permission_type === "read_all_file_system") {
+          //
+        } else if (data.permission_type === "read_usr_file_system" && data.path.startsWith("/usr")) {
+          //
+        } else if (data.permission_type === "read_prg_file_system" && data.path.startsWith("/prg")) {
+          //
+        } else {
+          //invalid permission requested for path
+          return;
+        }
+        //
+      }
+      //
     } else {
       return;
     }

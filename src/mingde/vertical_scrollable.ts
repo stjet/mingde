@@ -6,7 +6,11 @@ import { Alignment, Button } from './components/button.js';
 
 //currently not compatible with components since this.context should be this.entire_context. I have an idea to fix this
 
+//actions that classes that extend this window might find useful
 export enum VerticalScrollableMessage {
+  ScrollTo, //data is number
+  ScrollDown, //data is number
+  ScrollUp, //data is number
   //
 }
 
@@ -103,6 +107,25 @@ export class VerticalScrollable<MessageType> extends Window<VerticalScrollableMe
         this.scroll_y = (this.scroll_y + SCROLL_DISTANCE) > this.entire_height - this.size[1] ? this.entire_height - this.size[1] : this.scroll_y + SCROLL_DISTANCE;
         this.do_rerender = true;
       }
+    } else if (message === WindowMessage.WindowResize) {
+      //extending classes are expected to deal with height and stuff
+      this.entire_canvas.width = this.size[0];
+      this.do_rerender = true;
+    } else if (message === VerticalScrollableMessage.ScrollTo && typeof data === "number") {
+      this.scroll_y = data;
+      if (this.scroll_y < 0) {
+        this.scroll_y = 0;
+      } else if (this.scroll_y > this.entire_height - this.size[1]) {
+        this.scroll_y = this.entire_height - this.size[1];
+      }
+      this.do_rerender = true;
+    } else if (message === VerticalScrollableMessage.ScrollUp && typeof data === "number") {
+      this.scroll_y = (this.scroll_y - data) < 0 ? 0 : this.scroll_y - data;
+      this.do_rerender = true;
+    } else if (message === VerticalScrollableMessage.ScrollDown && typeof data === "number") {
+      console.log(this.scroll_y + data > this.entire_height);
+      this.scroll_y = (this.scroll_y + data) > this.entire_height - this.size[1] ? this.entire_height - this.size[1] : this.scroll_y + data;
+      this.do_rerender = true;
     }
     //
     return this.do_rerender;

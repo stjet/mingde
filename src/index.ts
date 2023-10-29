@@ -1,13 +1,14 @@
 import { Layer, Window, WindowManager } from './mingde/wm.js';
 import { DesktopBackground } from './mingde/desktop_background.js';
 import { Taskbar } from './mingde/taskbar.js';
+import { VerticalScrollable } from './mingde/vertical_scrollable.js';
 import { AlertBox } from './mingde/windows/alert_box.js';
 import { registry } from './mingde/registry.js';
 import { TASKBAR_HEIGHT, SCALE, DEFAULT_WM_SETTINGS } from './mingde/constants.js'
 
-//is this needed? idk
+//is this needed? idk. meant to make wm not a global var or something, not sure if it actually matters
 (() => {
-  let wm = new WindowManager("canvas-container", registry, {}, DEFAULT_WM_SETTINGS, true);
+  let wm = new WindowManager(registry, {}, DEFAULT_WM_SETTINGS, true);
 
   wm.set_layers([new Layer(wm, "desktop"), new Layer(wm, "windows", true), new Layer(wm, "taskbar")]);
 
@@ -38,6 +39,8 @@ import { TASKBAR_HEIGHT, SCALE, DEFAULT_WM_SETTINGS } from './mingde/constants.j
   wm.layers[1].add_member(new Window([300, 200], "Test 123"), [469, 100]);
 
   wm.layers[1].add_member(new AlertBox("Alert", "Can we harvest your organs? Can we harvest your organs? Can we harvest your organs? Thank you for letting us harvest your organs."), [100, 100]);
+
+  wm.layers[1].add_member(new VerticalScrollable([300, 200], "vertical scrollable", 760), [222, 222]);
 
   wm.render_stop = false;
 

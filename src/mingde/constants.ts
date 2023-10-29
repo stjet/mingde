@@ -10,6 +10,7 @@ export const SCROLLBAR_WIDTH: number = 15 * SCALE;
 export const SCROLLBAR_BUTTON_HEIGHT: number = 15 * SCALE;
 export const SCROLL_DISTANCE: number = 5 * SCALE;
 export const FONT_NAME: string = "Times New Roman";
+export const FONT_NAME_MONO: string = "Courier New";
 export const WINDOW_MIN_DIMENSIONS: [number, number] = [100 * SCALE, 100 * SCALE];
 export const WINDOW_DEFAULT_DIMENSIONS: [number, number] = [300 * SCALE, 200 * SCALE]; //mostly applies when toggling fullscreen
 export const FONT_SIZES: Record<string, number> = {
@@ -27,6 +28,7 @@ export const DEFAULT_WM_SETTINGS: WindowManagerSettings = {
 export const CONFIG = {
   DEBUG: {
     REQUESTS: true, //todo: fine grain by request type
+    GAMES: false, //games debug, currently only used by bag
   },
   LOGS: {
     RERENDERS: true,

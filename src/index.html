@@ -22,7 +22,26 @@
     </style>
   </head>
   <body>
-    <div id="canvas-container"></div>
+    <script>
+      //forbid usage of the following
+      setTimeout = undefined;
+      setInterval = undefined;
+      alert = undefined;
+      prompt = undefined;
+      //these are meant to make it a bit harder for people to fuck with the canvas
+      //but canvas can be fucked if they do .children
+      //people shouldn't be adding arbitrary code anyways so whatever
+      document.getElementById = undefined;
+      document.querySelector = undefined;
+      document.querySelectorAll = undefined;
+      document.getElementsByTagName = undefined;
+      document.elementFromPoint = undefined;
+      document.elementsFromPoint = undefined;
+      Element.prototype.getElementsByTagName = undefined;
+      Element.prototype.lastElementChild = undefined;
+      Element.prototype.querySelector = undefined;
+      Element.prototype.querySelectorAll = undefined;
+    </script>
     <script src="/index.js" type="module"></script>
   </body>
 </html>

@@ -5,12 +5,19 @@ import { Settings } from './windows/settings.js';
 import { Minesweeper } from './windows/minesweeper.js';
 import { Reversi } from './windows/reversi.js';
 import { Shortcuts } from './windows/shortcuts.js';
+import { Terminal } from './windows/terminal.js';
+import { Bag } from './windows/bag.js';
 
 export interface Permission {
   change_theme?: boolean;
   change_settings?: boolean;
-  //
+  open_windows?: boolean;
+  read_all_file_system?: boolean;
+  read_usr_file_system?: boolean;
+  read_prg_file_system?: boolean;
 }
+
+export type FILE_SYSTEM_PERMISSIONS = "read_all_file_system" | "read_usr_file_system" | "read_prg_file_system";
 
 export type Permissions = Record<string, Permission>;
 
@@ -46,6 +53,13 @@ export const registry: Registry = {
     category: "none",
     name: "allow-box",
   },
+  "terminal": {
+    class: Terminal,
+    args: [[300, 200]],
+    display_name: "Terminal",
+    category: ApplicationCategories.Utils,
+    name: "terminal",
+  },
   "settings": {
     class: Settings,
     args: [[300, 200]],
@@ -73,6 +87,13 @@ export const registry: Registry = {
     display_name: "Reversi",
     category: ApplicationCategories.Games,
     name: "reversi",
+  },
+  "bag": {
+    class: Bag,
+    args: [],
+    display_name: "Bag",
+    category: ApplicationCategories.Games,
+    name: "bag",
   },
 };
 

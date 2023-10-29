@@ -1,6 +1,6 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEMES_LIST } from './themes.js';
-import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, CursorType } from './requests.js';
+import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, ReadFileSystemValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
 import { SETTINGS_KEYS } from './mutables.js';
 
@@ -37,6 +37,19 @@ export function hasText(maybe_has_text: any): maybe_has_text is { text: string }
   if (typeof maybe_has_text?.text === "string") return true;
   return false;
 }
+
+/*
+//unused
+export function hasLines(maybe_has_lines: any): maybe_has_lines is { lines: string[] } {
+  if (Array.isArray(maybe_has_lines?.lines) && maybe_has_lines?.lines?.every((line) => typeof line === "string")) return true;
+  return false;
+}
+
+export function isParagraph(maybe_paragraph: any): maybe_paragraph is { calculate_lines: () => string[], lines: string[] } {
+  if (typeof maybe_paragraph?.calculate_lines === "function" && hasLines(maybe_paragraph)) return true;
+  return false;
+}
+*/
 
 export function isDesktopBackgroundInfo(maybe_desktop_bg_info: any): maybe_desktop_bg_info is DesktopBackgroundInfo<DesktopBackgroundTypes> {
   if (maybe_desktop_bg_info) {
@@ -94,6 +107,13 @@ export function isChangeSettingsValue(maybe_change_settings: any): maybe_change_
     //check type
     if (typeof Object.values(settings)[i] !== SETTINGS_KEYS[found_index][1]) return false;
   }
+  return true;
+}
+
+const FILE_SYSTEM_PERMISSIONS_ALL = ["read_all_file_system", "read_usr_file_system", "read_prg_file_system"];
+export function isReadFileSystemValue(maybe_read_file_system: any): maybe_read_file_system is ReadFileSystemValue {
+  if (!FILE_SYSTEM_PERMISSIONS_ALL.includes(maybe_read_file_system?.permission_type) && typeof maybe_read_file_system?.path !== "string") return false;
+  if (!maybe_read_file_system?.path.startsWith('/')) return false;
   return true;
 }
 
