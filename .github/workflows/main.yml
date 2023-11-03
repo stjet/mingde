@@ -2,7 +2,7 @@ name: Compile Typescript and Deploy to Pages
 
 on:
   push:
-    branches: ["master", "workflow-test"]
+    branches: ["master"]
 
   workflow_dispatch:
 
