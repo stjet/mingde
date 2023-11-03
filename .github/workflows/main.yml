@@ -36,14 +36,11 @@ jobs:
         run: |
           npm ci
           npm run build
+          rm -rf ./src/node_modules
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v2
         with:
-          path: |
-            ./src
-            !./src/node_modules
-            !./src/*.json
-            !./src/*.ts
+          path: ./src
 
   deploy:
     runs-on: ubuntu-latest
