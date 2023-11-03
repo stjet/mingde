@@ -39,7 +39,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: ./src
+          path: |
+            ./src
+            !./src/node_modules
+            !./src/*.json
+            !./src/*.ts
 
   deploy:
     runs-on: ubuntu-latest
