@@ -1,7 +1,7 @@
 import type { Themes } from './themes.js';
 import type { WindowManagerSettings } from './mutables.js';
-import type { FILE_SYSTEM_PERMISSIONS } from './registry.js';
-import type { Path } from './fs.js';
+import type { READ_FILE_SYSTEM_PERMISSIONS, WRITE_FILE_SYSTEM_PERMISSIONS } from './registry.js';
+import type { Path, FileObject, DirectoryObject } from './fs.js';
 
 //requests are messages but propogate up from windowlike to wm
 export enum WindowRequest {
@@ -14,6 +14,8 @@ export enum WindowRequest {
   ChangeTheme = "ChangeTheme", //also a WindowMessage called this, that won't be confusing at all...
   ChangeSettings = "ChangeSettings",
   ReadFileSystem = "ReadFileSystem",
+  WriteFileSystem = "WriteFileSystem",
+  RemoveFileSystem = "RemoveFileSystem",
 }
 
 //should be extended if requests need additional values, eg, OpenWindow request needs to know what window to open
@@ -64,7 +66,19 @@ export interface ChangeSettingsValue extends WindowRequestValue {
 }
 
 export interface ReadFileSystemValue extends WindowRequestValue {
-  permission_type: FILE_SYSTEM_PERMISSIONS;
+  permission_type: READ_FILE_SYSTEM_PERMISSIONS;
+  path: Path;
+}
+
+//append
+export interface WriteFileSystemValue extends WindowRequestValue {
+  permission_type: WRITE_FILE_SYSTEM_PERMISSIONS;
+  path: Path;
+  content: FileObject | DirectoryObject;
+}
+
+export interface RemoveFileSystemValue extends WindowRequestValue {
+  permission_type: WRITE_FILE_SYSTEM_PERMISSIONS;
   path: Path;
 }
 
@@ -78,5 +92,7 @@ export interface WindowRequestValues {
   [WindowRequest.ChangeTheme]: ChangeThemeValue;
   [WindowRequest.ChangeSettings]: ChangeSettingsValue;
   [WindowRequest.ReadFileSystem]: ReadFileSystemValue;
+  [WindowRequest.WriteFileSystem]: WriteFileSystemValue;
+  [WindowRequest.RemoveFileSystem]: RemoveFileSystemValue;
 }
 

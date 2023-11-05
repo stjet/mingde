@@ -15,9 +15,14 @@ export interface Permission {
   read_all_file_system?: boolean;
   read_usr_file_system?: boolean;
   read_prg_file_system?: boolean;
+  write_all_file_system?: boolean;
+  write_usr_file_system?: boolean;
+  write_prg_file_system?: boolean;
 }
 
-export type FILE_SYSTEM_PERMISSIONS = "read_all_file_system" | "read_usr_file_system" | "read_prg_file_system";
+export type READ_FILE_SYSTEM_PERMISSIONS = `read_${string}_file_system`;
+
+export type WRITE_FILE_SYSTEM_PERMISSIONS = `write_${string}_file_system`;
 
 export type Permissions = Record<string, Permission>;
 

@@ -1,6 +1,6 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEMES_LIST } from './themes.js';
-import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, ReadFileSystemValue, CursorType } from './requests.js';
+import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, ReadFileSystemValue, WriteFileSystemValue, RemoveFileSystemValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
 import { SETTINGS_KEYS } from './mutables.js';
 
@@ -110,10 +110,21 @@ export function isChangeSettingsValue(maybe_change_settings: any): maybe_change_
   return true;
 }
 
-const FILE_SYSTEM_PERMISSIONS_ALL = ["read_all_file_system", "read_usr_file_system", "read_prg_file_system"];
 export function isReadFileSystemValue(maybe_read_file_system: any): maybe_read_file_system is ReadFileSystemValue {
-  if (!FILE_SYSTEM_PERMISSIONS_ALL.includes(maybe_read_file_system?.permission_type) && typeof maybe_read_file_system?.path !== "string") return false;
+  if (!maybe_read_file_system?.permission_type.startsWith("read_") || !maybe_read_file_system?.permission_type.endsWith("_file_system") || typeof maybe_read_file_system?.path !== "string") return false;
   if (!maybe_read_file_system?.path.startsWith('/')) return false;
+  return true;
+}
+
+export function isWriteFileSystemValue(maybe_write_file_system: any): maybe_write_file_system is WriteFileSystemValue {
+  if (!maybe_write_file_system?.permission_type.startsWith("write_") || !maybe_write_file_system?.permission_type.endsWith("_file_system") || typeof maybe_write_file_system?.path !== "string" || (typeof maybe_write_file_system?.content !== "string" && typeof maybe_write_file_system?.content !== "object")) return false;
+  if (!maybe_write_file_system?.path.startsWith('/')) return false;
+  return true;
+}
+
+export function isRemoveFileSystemValue(maybe_remove_file_system: any): maybe_remove_file_system is RemoveFileSystemValue {
+  if (!maybe_remove_file_system?.permission_type.startsWith("write_") || !maybe_remove_file_system?.permission_type.endsWith("_file_system") || typeof maybe_remove_file_system?.path !== "string") return false;
+  if (!maybe_remove_file_system?.path.startsWith('/')) return false;
   return true;
 }
 

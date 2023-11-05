@@ -1,5 +1,5 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
@@ -614,7 +614,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           //
         },
         "documents": {
-          //
+          "test.txt": "Testing 1, 2, 3. Is this thing on?",
         },
         "downloads": {
           //
@@ -885,7 +885,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     //`return` before this if don't want to rerender
     this.render();
   }
-  ask_permission<T extends WindowRequest>(permission: keyof Permission, request: T, data: WindowRequestValues[T]) {
+  ask_permission<T extends WindowRequest>(permission: keyof Permission, request: T, data: WindowRequestValues[T], resend: boolean = true) {
     let r_info = this.registry["allow-box"];
     if (r_info) {
       let allow_box = new (r_info.class)(data.id, permission, () => {
@@ -897,7 +897,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           this.permissions[data.id][permission] = true;
         }
         //resend request
-        this.handle_request(request, data);
+        if (resend) {
+          this.handle_request(request, data);
+        }
       });
       let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
       if (start_coords[1] < 0) {
@@ -1070,19 +1072,41 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         return this.file_system.get_path_contents(data.path);
       } else {
         //alert box blah blah
-        if (data.permission_type === "read_all_file_system") {
-          //
-        } else if (data.permission_type === "read_usr_file_system" && data.path.startsWith("/usr")) {
-          //
-        } else if (data.permission_type === "read_prg_file_system" && data.path.startsWith("/prg")) {
-          //
+        //do not resend request
+        if (data.permission_type === "read_all_file_system" || (data.permission_type === "read_usr_file_system" && data.path.startsWith("/usr")) || (data.permission_type === "read_prg_file_system" && data.path.startsWith("/prg"))) {
+          this.ask_permission("read_all_file_system", request, data, false);
         } else {
           //invalid permission requested for path
           return;
         }
-        //
       }
-      //
+    } else if (request === WindowRequest.WriteFileSystem && isWriteFileSystemValue(data)) {
+      if (data.path.includes(" ")) return; //no spaces in path!
+      if (this.permissions[data.id]?.write_all_file_system || (this.permissions[data.id]?.write_usr_file_system && data.path.startsWith("/usr")) || (this.permissions[data.id]?.write_prg_file_system && data.path.startsWith("/prg"))) {
+        return this.file_system.write_path(data.path, data.content);
+      } else {
+        //alert box blah blah
+        //do not resend request
+        if (data.permission_type === "write_all_file_system" || (data.permission_type === "write_usr_file_system" && data.path.startsWith("/usr")) || (data.permission_type === "write_prg_file_system" && data.path.startsWith("/prg"))) {
+          this.ask_permission(data.permission_type, request, data, false);
+        } else {
+          //invalid permission requested for path
+          return;
+        }
+      }
+    } else if (request === WindowRequest.RemoveFileSystem && isRemoveFileSystemValue(data)) {
+      if (this.permissions[data.id]?.write_all_file_system || (this.permissions[data.id]?.write_usr_file_system && data.path.startsWith("/usr")) || (this.permissions[data.id]?.write_prg_file_system && data.path.startsWith("/prg"))) {
+        return this.file_system.remove_path(data.path);
+      } else {
+        //alert box blah blah
+        //do not resend request
+        if (data.permission_type === "write_all_file_system" || (data.permission_type === "write_usr_file_system" && data.path.startsWith("/usr")) || (data.permission_type === "write_prg_file_system" && data.path.startsWith("/prg"))) {
+          this.ask_permission(data.permission_type, request, data, false);
+        } else {
+          //invalid permission requested for path
+          return;
+        }
+      }
     } else {
       return;
     }
