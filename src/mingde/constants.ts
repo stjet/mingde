@@ -34,6 +34,7 @@ export const CONFIG = {
     RERENDERS: true,
   },
   HIGHLIGHT_BUTTONS: true, //enable highlight button's highlights (can cause a lot of rerenders)
+  SHADOWS: true,
   GRADIENTS: true,
   DEFAULT_BACKGROUND: "#008080",
   MINGDE_YELLOW: "#FFC90E",

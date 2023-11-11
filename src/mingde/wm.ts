@@ -1,5 +1,5 @@
 import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
@@ -43,6 +43,10 @@ export enum StartMenuMessageStandard {
   StartMenuClose = "StartMenuClose",
 }
 
+export enum DesktopBackgroundMessageStandard {
+  ChangeBackground = "ChangeBackground",
+}
+
 //Inspired by Elm Architecture
 export interface Elm<MessageType> {
   id: string;
@@ -58,6 +62,15 @@ export interface Component<MessageType> extends Elm<MessageType> {
   readonly parent: WindowLike<MessageType | WindowMessage>; //readonly?
   render_view(theme: Themes, context?: CanvasRenderingContext2D): void; //draws to the canvas
   clickable: boolean;
+}
+
+//button, text input, checkbox, any user input should implement this
+//eventually, use this so input can be done without mouse
+//eg, focused text input allows input, focused button or checkbox allows click with Enter
+export interface FocusableComponent<MessageType> extends Component<MessageType> {
+  focused: boolean;
+  focus(): boolean;
+  unfocus(): boolean;
 }
 
 export type Member = Component<any> | WindowLike<any>;
@@ -393,6 +406,22 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               this.handle_message(WindowMessage.GenericShortcut, "up");
             } else if (SHORTCUTS["down"].includes(data.key)) {
               this.handle_message(WindowMessage.GenericShortcut, "down");
+            } else if (SHORTCUTS["move-window-left"].includes(data.key)) {
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [-15, 0],
+              }, this.secret);
+            } else if (SHORTCUTS["move-window-right"].includes(data.key)) {
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [15, 0],
+              }, this.secret);
+            } else if (SHORTCUTS["move-window-up"].includes(data.key)) {
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [0, -15],
+              }, this.secret);
+            } else if (SHORTCUTS["move-window-down"].includes(data.key)) {
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [0, 15],
+              }, this.secret);
             }
             propogate_down = false;
           }
@@ -649,6 +678,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         if (Object.values(SHORTCUTS).flat().includes(event.key)) {
           event.preventDefault();
           event.stopPropagation();
+        } else if (event.key === "/") {
+          //prevent firefox's search box from popping up when typing paths
+          event.preventDefault();
         }
       }
     });
@@ -793,9 +825,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       window_rerendered = window_rerendered || window_rerendered_actual;
     } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
       //if shortcuts is false, most keyboard shortcuts should be disabled
-      if (this.settings.shortcuts) {
+      if (this.settings.shortcuts && data.altKey) {
         //check if it is start menu shortcut, if so, send to taskbar to open (or start menu to close)
-        if (data.altKey && SHORTCUTS["start-menu"].includes(data.key)) {
+        if (SHORTCUTS["start-menu"].includes(data.key)) {
           window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
             return member.handle_message_window(TaskbarMessageStandard.StartMenuOpen, true);
           });
@@ -806,16 +838,16 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
             });
             this.focused_id = undefined;
           }
-        } else if (data.altKey && key_is_switch_focus_shortcut(data.key)) {
+        } else if (key_is_switch_focus_shortcut(data.key)) {
           //send to taskbars
           window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.SwitchFocus, get_switch_key_index(data.key));
           });
-        } else if (data.altKey && SHORTCUTS["cycle-left"].includes(data.key)) {
+        } else if (SHORTCUTS["cycle-left"].includes(data.key)) {
           window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.FocusCycleLeft, true);
           });
-        } else if (data.altKey && SHORTCUTS["cycle-right"].includes(data.key)) {
+        } else if (SHORTCUTS["cycle-right"].includes(data.key)) {
           window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.FocusCycleRight, true);
           });
@@ -886,6 +918,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.render();
   }
   ask_permission<T extends WindowRequest>(permission: keyof Permission, request: T, data: WindowRequestValues[T], resend: boolean = true) {
+    if (!data.id) throw Error("Request sent without id property set. This should never happen.");
     let r_info = this.registry["allow-box"];
     if (r_info) {
       let allow_box = new (r_info.class)(data.id, permission, () => {
@@ -936,6 +969,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       if (this.permissions[data.id]) {
         delete this.permissions[data.id];
       }
+      //change cursor back to normal
+      this.canvas.style.cursor = "default";
     } else if (request === WindowRequest.ChangeCursor && data.trusted && isChangeCursorValue(data)) {
       if (this.canvas.style.cursor === data.new_cursor) return;
       this.canvas.style.cursor = data.new_cursor;
@@ -1063,6 +1098,17 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       } else {
         //open allow box that asks user for permission
         this.ask_permission("change_settings", request, data);
+        return;
+      }
+    } else if (request === WindowRequest.ChangeDesktopBackground && isChangeDesktopBackgroundValue(data)) {
+      if (this.permissions[data.id]?.change_desktop_background) {
+        this.options.desktop_background_info = data.new_info;
+        this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.DesktopBackground).forEach(([member, _coords]) => {
+          member.handle_message_window(DesktopBackgroundMessageStandard.ChangeBackground, true);
+        });
+      } else {
+        //open allow box that asks user for permission
+        this.ask_permission("change_desktop_background", request, data);
         return;
       }
     } else if (request === WindowRequest.ReadFileSystem && isReadFileSystemValue(data)) {

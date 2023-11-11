@@ -1,4 +1,4 @@
-import type { Themes } from './themes.js';
+import type { Themes, DesktopBackgroundInfo, DesktopBackgroundTypes} from './themes.js';
 import type { WindowManagerSettings } from './mutables.js';
 import type { READ_FILE_SYSTEM_PERMISSIONS, WRITE_FILE_SYSTEM_PERMISSIONS } from './registry.js';
 import type { Path, FileObject, DirectoryObject } from './fs.js';
@@ -13,6 +13,7 @@ export enum WindowRequest {
   ChangeCoords = "ChangeCoords",
   ChangeTheme = "ChangeTheme", //also a WindowMessage called this, that won't be confusing at all...
   ChangeSettings = "ChangeSettings",
+  ChangeDesktopBackground = "ChangeDesktopBackground",
   ReadFileSystem = "ReadFileSystem",
   WriteFileSystem = "WriteFileSystem",
   RemoveFileSystem = "RemoveFileSystem",
@@ -45,6 +46,7 @@ export enum CursorType {
   Move = "move",
   ColResize = "col-resize",
   RowResize = "row-resize",
+  //NotAllowed = "not-allowed",
 }
 
 export interface ChangeCursorValue extends WindowRequestValue {
@@ -63,6 +65,10 @@ export interface ChangeThemeValue extends WindowRequestValue {
 
 export interface ChangeSettingsValue extends WindowRequestValue {
   changed_settings: WindowManagerSettings; //just the changed settings
+}
+
+export interface ChangeDesktopBackgroundValue extends WindowRequestValue {
+  new_info: DesktopBackgroundInfo<DesktopBackgroundTypes>;
 }
 
 export interface ReadFileSystemValue extends WindowRequestValue {
@@ -91,6 +97,7 @@ export interface WindowRequestValues {
   [WindowRequest.ChangeCoords]: ChangeCoordsValue;
   [WindowRequest.ChangeTheme]: ChangeThemeValue;
   [WindowRequest.ChangeSettings]: ChangeSettingsValue;
+  [WindowRequest.ChangeDesktopBackground]: ChangeDesktopBackgroundValue;
   [WindowRequest.ReadFileSystem]: ReadFileSystemValue;
   [WindowRequest.WriteFileSystem]: WriteFileSystemValue;
   [WindowRequest.RemoveFileSystem]: RemoveFileSystemValue;

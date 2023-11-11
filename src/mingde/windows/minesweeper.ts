@@ -256,7 +256,7 @@ export class Minesweeper extends Window<MinesweeperMessage> {
         let tile_coords = [Math.floor((data.clientX - margin) / tile_size), Math.floor((data.clientY - margin - WINDOW_TOP_HEIGHT) / tile_size)];
         let tile: TileInfo = this.tiles[tile_coords[1]][tile_coords[0]];
         //already clicked, do nothing
-        if (tile.revealed) return;
+        if (tile.revealed) return false;
         if (this.first_click) {
           this.first_click = false;
           if (tile.touching !== 0) {

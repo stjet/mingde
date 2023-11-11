@@ -1,7 +1,8 @@
 //like constants.ts but not constants
 
+type Direction = "up" | "down" | "left" | "right";
 export type GenericShortcut = "up" | "down";
-export type Shortcut = "close-window" | "fullscreen-toggle-window" | "start-menu" | `switch-${number}` | "cycle-left" | "cycle-right" | GenericShortcut;
+export type Shortcut = "close-window" | "fullscreen-toggle-window" | "start-menu" | `switch-${number}` | `move-window-${Direction}` | "cycle-left" | "cycle-right" | GenericShortcut;
 
 //all are alt+
 export let SHORTCUTS: Record<Shortcut, string[]> = {
@@ -20,15 +21,23 @@ export let SHORTCUTS: Record<Shortcut, string[]> = {
   "switch-9": ["0"],
   "cycle-left": ["ArrowLeft"],
   "cycle-right": ["ArrowRight"],
+  "move-window-left": ["h"],
+  "move-window-right": ["l"],
+  "move-window-up": ["k"],
+  "move-window-down": ["j"],
   //generic (not linked to a specific global action if that makes sense) actions for windows to hear and stuff
   "up": ["ArrowUp"],
   "down": ["ArrowDown"],
 };
 
 export interface WindowManagerSettings {
-  shortcuts: boolean; //keyboard shortcuts enabled/disabled
+  shortcuts?: boolean; //keyboard shortcuts enabled/disabled
   //
 }
 
-export const SETTINGS_KEYS: [string, string][] = [["shortcuts", "boolean"]];
+//fine, this isn't technically mutable. but should be in the same place as WindowManageSettings, for ease of access
+export const SETTINGS_KEYS: [string, string][] = [
+  ["shortcuts", "boolean"],
+  ["shadows", "boolean"],
+];
 

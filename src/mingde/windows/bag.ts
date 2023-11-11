@@ -7,6 +7,8 @@ import { Background } from '../components/background.js';
 import { TextLine } from '../components/text_line.js';
 import { Button } from '../components/button.js';
 
+//considering loop is continuous, this should be solvable most of the time
+
 enum BagMessage {
   NewGame,
   //
@@ -48,11 +50,11 @@ export class Bag extends Window<BagMessage> {
     this.playing = true;
     this.layers = [new Layer(this, "win", false, true)];
     this.layers[0].add_member(new Background(this, "rgba(0, 0, 0, 0.5)", [0, WINDOW_TOP_HEIGHT / SCALE], [this.size[0] / SCALE, this.size[1] / SCALE]));
-    this.layers[0].add_member(new Background(this, undefined, [40, WINDOW_TOP_HEIGHT / SCALE + 40], [this.size[0] / SCALE - 80, this.size[1] / SCALE - WINDOW_TOP_HEIGHT / SCALE - 80]));
+    this.layers[0].add_member(new Background(this, undefined, [50, WINDOW_TOP_HEIGHT / SCALE + 50], [this.size[0] / SCALE - 100, this.size[1] / SCALE - WINDOW_TOP_HEIGHT / SCALE - 100]));
     this.context.font = `bold ${FONT_SIZES.HEADING}px ${FONT_NAME}`;
     let won_width: number = this.context.measureText("You Won").width / SCALE;
-    this.layers[0].add_member(new TextLine(this, "You Won", [this.size[0] / SCALE / 2 - won_width / 2, WINDOW_TOP_HEIGHT / SCALE + 120], "text_primary", "HEADING"));
-    this.layers[0].add_member(new Button(this, "Play again", [this.size[0] / SCALE / 2 - 50, this.size[1] / SCALE - 125], 100, 4, () => {
+    this.layers[0].add_member(new TextLine(this, "You Won", [this.size[0] / SCALE / 2 - won_width / 2, this.size[1] / SCALE - 125], "text_primary", "HEADING"));
+    this.layers[0].add_member(new Button(this, "Play again", [this.size[0] / SCALE / 2 - 50, this.size[1] / SCALE - 100], 100, 4, () => {
       this.handle_message(BagMessage.NewGame, true);
     }));
   }
@@ -369,7 +371,7 @@ export class Bag extends Window<BagMessage> {
       snakes.push(snake);
     }
     //pick a bunch of random cells in the loop as numbered cells, count the orthogonal numbers
-    const initial_numbered: number = Math.floor(Math.random() * 8) + 7; //what if more initial numbered than in loop?
+    const initial_numbered: number = Math.floor(Math.random() * 8) + 8; //what if more initial numbered than in loop?
     let accounted_for: [number, number][] = [];
     for (let i = 0; i < initial_numbered; i++) {
       //pick random cell inside loop, that is not already labelled
@@ -447,30 +449,27 @@ export class Bag extends Window<BagMessage> {
           this.context.fillStyle = "rgba(128, 128, 128, 0.5)";
           this.context.fillRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
         }
+        if (cell_info.marked_mode === MarkedModes.InLoop) {
+          this.context.fillStyle = "green";
+          this.context.fillRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
+        } else if (cell_info.marked_mode === MarkedModes.MaybeLoop) {
+          this.context.fillStyle = "yellow";
+          this.context.fillRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
+        } else if (cell_info.marked_mode === MarkedModes.OutLoop) {
+          this.context.fillStyle = "red";
+          this.context.fillRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
+        }
         //orthogonal will either be >0 or undefined so we can do this
         if (cell_info.orthogonal) {
           this.context.fillStyle = "blue";
           this.context.font = `bold ${FONT_SIZES.BUTTON}px ${FONT_NAME}`;
           this.context.fillText(String(cell_info.orthogonal), col_num * tile_size + tile_size / 2 + margin - text_widths[cell_info.orthogonal - 1] / 2, WINDOW_TOP_HEIGHT + row_num * tile_size + tile_size / 2 + FONT_SIZES.BUTTON / 2 + margin);
         }
-        if (cell_info.marked_mode === MarkedModes.InLoop) {
-          //highlight them or whatever
-          this.context.strokeStyle = "green";
-          this.context.strokeRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
-        } else if (cell_info.marked_mode === MarkedModes.MaybeLoop) {
-          //highlight them or whatever
-          this.context.strokeStyle = "yellow";
-          this.context.strokeRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
-        } else if (cell_info.marked_mode === MarkedModes.OutLoop) {
-          //highlight them or whatever
-          this.context.strokeStyle = "red";
-          this.context.strokeRect(margin + tile_size * col_num, WINDOW_TOP_HEIGHT + margin + tile_size * row_num, tile_size, tile_size);
-        }
       }
     }
     //tell player the total in loop
     const total_in_loop: number = this.grid.flat().filter((cell) => cell.in_loop).length;
-    this.context.fillStyle = "green";
+    this.context.fillStyle = "black";
     this.context.font = `bold ${FONT_SIZES.BUTTON}px ${FONT_NAME}`;
     this.context.fillText("Total in loop: " + String(total_in_loop), margin, FONT_SIZES.BUTTON + WINDOW_TOP_HEIGHT);
     if (!this.playing) {

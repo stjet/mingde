@@ -23,6 +23,7 @@ export class TextLine<MessageType> implements Component<MessageType> {
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
     this.color = color;
     this.font_size = font_size;
+    //max width may be undefined
     this.max_width = max_width ? max_width * SCALE : max_width;
     this.ellipsis = ellipsis; //if length more than max_width, ellipsis
     this.bold = bold;

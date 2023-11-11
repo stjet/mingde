@@ -15,6 +15,11 @@ export class FileSystemObject {
   constructor(file_system: DirectoryObject) {
     this.file_system = file_system;
   }
+  static is_legal_path(path: Path): boolean {
+    //file, directory names cannot include ..
+    if (path.includes("..")) return false;
+    return true;
+  }
   //does not actually check if path exists
   static navigate_path(current_path: Path, path_mod: string): Path {
     let mod_parts: string[] = path_mod.split("/");
@@ -88,7 +93,7 @@ export class FileSystemObject {
       let current_location: DirectoryObject | FileObject = this.file_system;
       for (let i = 0; i < parts.length - 1; i++) {
         current_location = current_location[parts[i]];
-        if (typeof current_location === "undefined") {
+        if (typeof current_location === "undefined" || typeof current_location === "string") {
           return false;
         }
       }
@@ -99,7 +104,9 @@ export class FileSystemObject {
   }
   //returns success/failure
   write_path(path: Path, new_content: FileObject | DirectoryObject): boolean {
-    if (path === "/") {
+    if (!FileSystemObject.is_legal_path(path)) {
+      return false;
+    } if (path === "/") {
       //no!
       return false;
     } else {

@@ -23,8 +23,7 @@ interface CommandInfo {
   min?: number,
 }
 
-//tail, head, (grep) etc
-//list window ids, permissions?
+//list window ids, permissions? (that should be separate window maybe)
 const command_info: Record<string, CommandInfo> = {
   help: {
     usage: "help [optional: command name]",
@@ -123,6 +122,32 @@ const command_info: Record<string, CommandInfo> = {
     max: -1,
     min: 2,
   },
+  //utils
+  count: {
+    usage: "count [path] [optional: --dir] [optional: --char]",
+    short: "Count lines in file or directory",
+    long: "Count lines in file, or all top-level files in a directory with the --dir flag. Or, count characters with the --char flag",
+    max: 3,
+    min: 1,
+  },
+  type: {
+    usage: "type [path]",
+    short: "Returns the type of whatever is at the path",
+    long: "Returns the type of whatever is at the path ('directory', 'file', or 'does not exist or missing perms')",
+    max: 1,
+    min: 1,
+  },
+  /*
+   * calc: {
+    usage: "calc [operation: add, sub, mul, div, mod] [..unlimited number arguments]",
+    short: "Return the result of a math operation on all of the arguments,
+    long: "Return the result of a math operation on all of the arguments, vars allowed",
+    max: -1,
+    min: 3,
+  },
+  //tail, head, grep
+  */
+  //
   //echo
   echo: {
     usage: "echo [...unlimited arguments]",
@@ -231,12 +256,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
   handle_input(input: string): string | undefined {
     let parts: string[] = input.split(" ");
     let command: string = parts.shift();
+    if (typeof command === "undefined") return;
     if (command_info[command]) {
       if (parts.length > command_info[command].max && command_info[command].max !== -1) {
-        return `Expected max of ${command_info[command].max} arguments but got ${parts.length}`;
+        return `Expected max of ${command_info[command].max} arguments but got ${parts.length}. \n Do \`help ${command}\` to learn about the command's arguments.`;
       } else if (command_info[command].min) {
         if (parts.length < command_info[command].min) {
-          return `Expected min of ${command_info[command].min} arguments but got ${parts.length}`;
+          return `Expected min of ${command_info[command].min} arguments but got ${parts.length}. \n Do \`help ${command}\` to learn about the command's arguments.`;
         }
       }
     } else {
@@ -362,7 +388,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       });
       if (!create_response) {
         //will not be root error since root already exists based on previous checks
-        return `Cannot create directory with path "${mkdir_path}", command needs to be rerun after write_all_file_system permission granted.`;
+        return `Cannot create directory with path "${mkdir_path}", command needs to be rerun after write_all_file_system permission granted. Or, directory name is illegal.`;
       }
       return "";
     } else if (command === "touch") {
@@ -395,7 +421,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       });
       if (!create_response) {
         //will not be root error since root already exists based on previous checks
-        return `Cannot create file with path "${touch_path}", command needs to be rerun after write_all_file_system permission granted.`;
+        return `Cannot create file with path "${touch_path}", command needs to be rerun after write_all_file_system permission granted. Or, file name is illegal.`;
       }
       return "";
     } else if (command === "rm") {
@@ -452,7 +478,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         return "Could not clear variable because it does not exist.";
       }
     } else if (command === "append") {
-      const write_path: Path = FileSystemObject.navigate_path(this.path, parts.shift());
+      const write_path: Path = FileSystemObject.navigate_path(this.path, parts.shift()); 
       const exists_response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
         path: write_path,
@@ -463,7 +489,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       } else if (typeof exists_response === "object") {
         return `Path "${write_path}" is a directory. Cannot write text to a directory.`;
       }
-      const content: string = exists_response + Terminal.add_vars_to_text(parts.join(" "), this.vars);
+      const content: string = exists_response + Terminal.add_vars_to_text(parts.map((p) => p === "\\n" ? "\n" : p).join(" "), this.vars);
       const create_response = this.send_request(WindowRequest.WriteFileSystem, {
         permission_type: "write_all_file_system",
         path: write_path,
@@ -486,7 +512,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       } else if (typeof exists_response === "object") {
         return `Path "${write_path}" is a directory. Cannot write text to a directory.`;
       }
-      const content: string = Terminal.add_vars_to_text(parts.join(" "), this.vars);
+      const content: string = Terminal.add_vars_to_text(parts.map((p) => p === "\\n" ? "\n" : p).join(" "), this.vars);
       const create_response = this.send_request(WindowRequest.WriteFileSystem, {
         permission_type: "write_all_file_system",
         path: write_path,
@@ -497,6 +523,52 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         return `Cannot overwrite file with path "${write_path}", command needs to be rerun after write_all_file_system permission granted.`;
       }
       return content;
+    } else if (command === "count") {
+      const count_path: Path = FileSystemObject.navigate_path(this.path, parts.shift());
+      const response = this.send_request(WindowRequest.ReadFileSystem, {
+        permission_type: "read_all_file_system",
+        path: count_path,
+      });
+      if (typeof response === "undefined") {
+        //path not found, or no permission
+        return `Path "${count_path}" does not exist, or command needs to be rerun after read_all_file_system permission granted.`;
+      } else if (typeof response === "object" && !parts.includes("--dir")) {
+        return `Path "${count_path}" is a directory, the flag --dir must be passed in order to count lines in a directory.`;
+      }
+      if (typeof response === "string") {
+        //file
+        if (parts.includes("--char")) {
+          return String(response.length);
+        } else {
+          return String(response.split(" \n ").length);
+        }
+      } else {
+        //directory, so count top level files
+        let count_text: string = "";
+        let total_count: number = 0;
+        for (let i = 0; i < Object.keys(response).length; i++) {
+          const path_name: string = Object.keys(response)[i];
+          if (typeof Object.values(response)[i] === "string") {
+            const file_count: number = parts.includes("--char") ? response[path_name].length : response[path_name].split(" \n ").length;
+            total_count += file_count;
+            count_text += `${FileSystemObject.navigate_path(count_path, Object.keys(response)[i])}: ${file_count} \n `;
+          }
+        }
+        return `${count_text}Total: ${total_count}`;
+      }
+    } else if (command === "type") {
+      const count_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      const response = this.send_request(WindowRequest.ReadFileSystem, {
+        permission_type: "read_all_file_system",
+        path: count_path,
+      });
+      if (typeof response === "undefined") {
+        return "does not exist or missing perms";
+      } else if (typeof response === "string") {
+        return "file";
+      } else if (typeof response === "object") {
+        return "directory";
+      }
     } else if (command === "echo") {
       return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
     } else if (command === "terminal" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag") {

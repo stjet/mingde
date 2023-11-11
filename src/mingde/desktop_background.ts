@@ -1,4 +1,4 @@
-import { Component, Layer, WindowLike, WindowLikeType, WindowMessage, WindowOptions } from './wm.js';
+import { Component, Layer, WindowLike, WindowLikeType, WindowMessage, WindowOptions, DesktopBackgroundMessageStandard } from './wm.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
 import { SCALE } from './constants.js';
@@ -9,13 +9,13 @@ export enum DesktopBackgroundMessage {
 }
 
 //members would be like desktop icons and stuff I guess?
-export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | WindowMessage> {
+export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | DesktopBackgroundMessageStandard> {
   readonly type: string = "window-like";
   readonly sub_type: WindowLikeType = WindowLikeType.DesktopBackground;
 
   readonly id: string;
   readonly render_view_window: (theme: Themes, options?: any) => void;
-  readonly handle_message_window: (message: DesktopBackgroundMessage | WindowMessage, data: any) => boolean;
+  readonly handle_message_window: (message: DesktopBackgroundMessage | DesktopBackgroundMessageStandard | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
 
   private secret: string;
@@ -45,9 +45,13 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
     };
     //this is a placeholder, yada yada yada
     this.send_request = <T extends WindowRequest>(_request: T, _data: WindowRequestValues[T], _secret?: string) => void 0;
-    this.handle_message_window = (message: DesktopBackgroundMessage | WindowMessage, data: any) => {
+    this.handle_message_window = (message: DesktopBackgroundMessage | DesktopBackgroundMessageStandard | WindowMessage, data: any) => {
       //nothing special to do, so just pass it on
-      this.handle_message(message, data);
+      if (message === DesktopBackgroundMessageStandard.ChangeBackground) {
+        this.do_rerender = true;
+      } else {
+        this.handle_message(message, data);
+      }
       return this.do_rerender;
     };
     //this.render_view isn't supposed to be overriden by anyone, so we can just do most of the stuff there

@@ -1,6 +1,12 @@
 import { CursorType } from './requests.js';
 import { SHORTCUTS } from './mutables.js';
 
+export enum ValidationState {
+  Valid,
+  Invalid,
+  Neither,
+}
+
 function gen_random(bytes_num: number) {
   let uint8 = new Uint8Array(bytes_num);
   (crypto || window.crypto).getRandomValues(uint8);

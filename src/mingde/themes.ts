@@ -33,7 +33,6 @@ export interface ThemeInfo {
   alt_text: string; //used for terminal
   border_left_top: string;
   border_right_bottom: string;
-  
 }
 
 export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {

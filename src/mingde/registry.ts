@@ -12,6 +12,7 @@ export interface Permission {
   change_theme?: boolean;
   change_settings?: boolean;
   open_windows?: boolean;
+  change_desktop_background?: boolean;
   read_all_file_system?: boolean;
   read_usr_file_system?: boolean;
   read_prg_file_system?: boolean;

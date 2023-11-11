@@ -1,8 +1,10 @@
-import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager } from './wm.js';
+import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager, FocusableComponent } from './wm.js';
 import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEMES_LIST } from './themes.js';
-import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, ReadFileSystemValue, WriteFileSystemValue, RemoveFileSystemValue, CursorType } from './requests.js';
+import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, ChangeDesktopBackgroundValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, ReadFileSystemValue, WriteFileSystemValue, RemoveFileSystemValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
 import { SETTINGS_KEYS } from './mutables.js';
+import { ValidationState } from './utils.js';
+import type { TextInput } from './components/text_input.js';
 
 //maybe these should all just be inlined instead of in this file?
 
@@ -30,6 +32,16 @@ export function isUIEvent(event: any): event is UIEvent {
 
 export function isCoords(maybe_coords: any): maybe_coords is [number, number] {
   if (typeof maybe_coords?.[0] === "number" && typeof maybe_coords?.[1] === "number" && maybe_coords?.length === 2) return true;
+  return false;
+}
+
+export function isFocusableComponent<MessageType>(maybe_focusable): maybe_focusable is FocusableComponent<MessageType> {
+  if (typeof maybe_focusable?.focused === "boolean" && typeof maybe_focusable?.focus === "function" && typeof maybe_focusable?.unfocus === "function") return true;
+  return false;
+}
+
+export function isTextInput<MessageType>(maybe_text_input: any): maybe_text_input is TextInput<MessageType> {
+  if (maybe_text_input?.type === "text-input" && typeof maybe_text_input?.value === "string" && maybe_text_input?.valid in ValidationState) return true;
   return false;
 }
 
@@ -100,7 +112,7 @@ export function isChangeThemeValue(maybe_change_theme: any): maybe_change_theme 
 
 export function isChangeSettingsValue(maybe_change_settings: any): maybe_change_settings is ChangeSettingsValue {
   if (!maybe_change_settings?.changed_settings) return false;
-  let settings = maybe_change_settings.changed_settings;
+  const settings = maybe_change_settings.changed_settings;
   for (let i = 0; i < Object.keys(settings).length; i++) {
     let found_index: number = SETTINGS_KEYS.findIndex((k) => k[0] === Object.keys(settings)[i]);
     if (found_index === -1) return false; //non-settings key not found
@@ -108,6 +120,11 @@ export function isChangeSettingsValue(maybe_change_settings: any): maybe_change_
     if (typeof Object.values(settings)[i] !== SETTINGS_KEYS[found_index][1]) return false;
   }
   return true;
+}
+
+export function isChangeDesktopBackgroundValue(maybe_change_desktop: any): maybe_change_desktop is ChangeDesktopBackgroundValue {
+  if (isDesktopBackgroundInfo(maybe_change_desktop?.new_info)) return true;
+  return false;
 }
 
 export function isReadFileSystemValue(maybe_read_file_system: any): maybe_read_file_system is ReadFileSystemValue {

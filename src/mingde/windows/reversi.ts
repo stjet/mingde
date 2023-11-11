@@ -70,7 +70,7 @@ export class Reversi extends Window<ReversiMessage> {
   static calculate_moves(board: Occupant[][], white_turn: boolean): PotentialMove[] {
     let moves: PotentialMove[] = [];
     const add_to_moves = (coords: [number, number], will_flip_over: [number, number][]) => {
-      if (!moves.find((c) => c[0] === coords[0] && c[1] === coords[1])) {
+      if (!moves.find((c) => c.coords[0] === coords[0] && c.coords[1] === coords[1])) {
         moves.push({
           coords,
           will_flip_over,
