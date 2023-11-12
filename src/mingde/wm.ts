@@ -1,4 +1,4 @@
-import { DesktopBackgroundInfo, DesktopBackgroundTypes, Themes, THEME_INFOS } from './themes.js';
+import { DesktopBackgroundValue, Themes, THEME_INFOS } from './themes.js';
 import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
@@ -118,9 +118,9 @@ export enum WindowLikeType {
 }
 
 export interface WindowOptions {
-  desktop_background_info: DesktopBackgroundInfo<DesktopBackgroundTypes>;
-  time: DesktopTime,
-  settings: WindowManagerSettings,
+  desktop_background: DesktopBackgroundValue;
+  time: DesktopTime;
+  settings: WindowManagerSettings;
 }
 
 export interface WindowLike<MessageType> extends Canvas<WindowMessage, Component<any>> {
@@ -632,7 +632,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.theme = theme;
     this.options = {
       //default desktop background
-      desktop_background_info: [DesktopBackgroundTypes.Solid, "#008080"],
+      desktop_background: "#008080",
       time: get_time(),
       settings,
     };
@@ -649,7 +649,15 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           //
         },
         "media": {
-          //
+          "backgrounds": {
+            "bloby.image": "/backgrounds/bloby.png",
+            "blury.image": "/backgrounds/blury.png",
+            "castley.image": "/backgrounds/castley.png",
+            "cityy.image": "/backgrounds/cityy.png",
+            "mingy.image": "/backgrounds/mingy.png",
+            "outskirty.image": "/backgrounds/outskirty.png",
+            "piecey.image": "/backgrounds/piecey.png",
+          },
         },
       },
       "prg": {
@@ -1102,7 +1110,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       }
     } else if (request === WindowRequest.ChangeDesktopBackground && isChangeDesktopBackgroundValue(data)) {
       if (this.permissions[data.id]?.change_desktop_background) {
-        this.options.desktop_background_info = data.new_info;
+        this.options.desktop_background = data.new_info;
         this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.DesktopBackground).forEach(([member, _coords]) => {
           member.handle_message_window(DesktopBackgroundMessageStandard.ChangeBackground, true);
         });

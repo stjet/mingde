@@ -4,3 +4,4 @@ target
 Cargo.lock
 node_modules
 src/todo.txt
+_*.png

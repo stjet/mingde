@@ -4,9 +4,10 @@ import { AllowBox } from './windows/allow_box.js';
 import { Settings } from './windows/settings.js';
 import { Minesweeper } from './windows/minesweeper.js';
 import { Reversi } from './windows/reversi.js';
+import { Bag } from './windows/bag.js';
 import { Shortcuts } from './windows/shortcuts.js';
 import { Terminal } from './windows/terminal.js';
-import { Bag } from './windows/bag.js';
+import { Calculator } from './windows/calculator.js';
 
 export interface Permission {
   change_theme?: boolean;
@@ -65,6 +66,13 @@ export const registry: Registry = {
     display_name: "Terminal",
     category: ApplicationCategories.Utils,
     name: "terminal",
+  },
+  "calculator": {
+    class: Calculator,
+    args: [],
+    display_name: "Calculator",
+    category: ApplicationCategories.Utils,
+    name: "calculator",
   },
   "settings": {
     class: Settings,

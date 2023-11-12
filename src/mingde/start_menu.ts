@@ -17,7 +17,7 @@ export enum ApplicationCategories {
   Internet = "internet",
   Utils = "utils",
   Games = "games",
-  External = "external",
+  Media = "media",
   Misc = "misc",
   System = "system",
 }

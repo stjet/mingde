@@ -1,12 +1,7 @@
-export enum DesktopBackgroundTypes {
-  Solid = "Solid", //solid colour
-}
 
-export interface DesktopBackgroundValues {
-  [DesktopBackgroundTypes.Solid]: string,
-}
-
-export type DesktopBackgroundInfo<T extends DesktopBackgroundTypes> = [T, DesktopBackgroundValues[T]];
+//hex solid colour, or image
+export type HexColor = `#${string}`;
+export type DesktopBackgroundValue = HexColor | HTMLImageElement;
 
 export enum Themes {
   Standard = "Standard",
@@ -112,8 +107,8 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     top: "white",
     text_primary: "white",
     text_top: "black",
-    highlight: "black",
-    text_highlight: "white",
+    highlight: "white",
+    text_highlight: "black",
     background: "black",
     alt_background: "black",
     alt_text: "white",

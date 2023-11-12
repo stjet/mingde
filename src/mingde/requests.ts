@@ -1,4 +1,4 @@
-import type { Themes, DesktopBackgroundInfo, DesktopBackgroundTypes} from './themes.js';
+import type { Themes, DesktopBackgroundValue } from './themes.js';
 import type { WindowManagerSettings } from './mutables.js';
 import type { READ_FILE_SYSTEM_PERMISSIONS, WRITE_FILE_SYSTEM_PERMISSIONS } from './registry.js';
 import type { Path, FileObject, DirectoryObject } from './fs.js';
@@ -68,7 +68,7 @@ export interface ChangeSettingsValue extends WindowRequestValue {
 }
 
 export interface ChangeDesktopBackgroundValue extends WindowRequestValue {
-  new_info: DesktopBackgroundInfo<DesktopBackgroundTypes>;
+  new_info: DesktopBackgroundValue;
 }
 
 export interface ReadFileSystemValue extends WindowRequestValue {

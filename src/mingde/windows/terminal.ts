@@ -137,16 +137,14 @@ const command_info: Record<string, CommandInfo> = {
     max: 1,
     min: 1,
   },
-  /*
-   * calc: {
+  calc: {
     usage: "calc [operation: add, sub, mul, div, mod] [..unlimited number arguments]",
-    short: "Return the result of a math operation on all of the arguments,
+    short: "Return the result of a math operation on all of the arguments",
     long: "Return the result of a math operation on all of the arguments, vars allowed",
     max: -1,
     min: 3,
   },
   //tail, head, grep
-  */
   //
   //echo
   echo: {
@@ -196,6 +194,14 @@ const command_info: Record<string, CommandInfo> = {
     usage: "bag",
     short: "Open the bag window",
     long: "Open the bag window",
+    max: 0,
+    min: 0,
+  },
+  //exit
+  exit: {
+    usage: "exit",
+    short: "Close the terminal window",
+    long: "Close the terminal window",
     max: 0,
     min: 0,
   },
@@ -569,6 +575,33 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       } else if (typeof response === "object") {
         return "directory";
       }
+    } else if (command === "calc") {
+      const operation: string = parts.shift();
+      const operations: string[] = ["add", "sub", "mul", "div", "mod"];
+      if (!operations.includes(operation)) {
+        return `Operation must be one of the following: ${operations.join(", ")}`;
+      }
+      const number_args: number[] = parts.map((p) => {
+        return Number(Terminal.add_vars_to_text(p, this.vars));
+      });
+      if (number_args.some((p) => isNaN(p))) {
+        return "At least one of the number args was not a number.";
+      }
+      let result: number = number_args[0];
+      for (let i = 1; i < number_args.length; i++) {
+        if (operation === "add") {
+          result += number_args[i];
+        } else if (operation === "sub") {
+          result -= number_args[i];
+        } else if (operation === "mul") {
+          result *= number_args[i];
+        } else if (operation === "div") {
+          result /= number_args[i];
+        } else if (operation === "mod") {
+          result %= number_args[i];
+        }
+      }
+      return String(result);
     } else if (command === "echo") {
       return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
     } else if (command === "terminal" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag") {
@@ -580,10 +613,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         //sub_size_y: true,
       });
       return `Trying to open ${command}...`;
+    } else if (command === "exit") {
+      this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
+      return "Exiting...";
     } else {
       return "Well, this shouldn't happen... That command should exist but doesn't.";
     }
-    return "Well, this shouldn't happen... The command was not handled.";
+    //return "Well, this shouldn't happen... The command was not handled.";
   }
   render_view(theme: Themes) {
     const THEME_INFO: ThemeInfo = THEME_INFOS[theme];

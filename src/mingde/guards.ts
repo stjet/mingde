@@ -1,9 +1,9 @@
 import { WindowChangeEvent, WindowLike, WindowLikeType, WindowManager, FocusableComponent } from './wm.js';
-import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes, THEMES_LIST } from './themes.js';
+import { DesktopBackgroundValue, Themes, THEMES_LIST, HexColor } from './themes.js';
 import { OpenWindowValue, ChangeCursorValue, ChangeCoordsValue, ChangeDesktopBackgroundValue, FocusWindowValue, ChangeThemeValue, ChangeSettingsValue, ReadFileSystemValue, WriteFileSystemValue, RemoveFileSystemValue, CursorType } from './requests.js';
 import { DesktopTime } from './utils.js';
 import { SETTINGS_KEYS } from './mutables.js';
-import { ValidationState } from './utils.js';
+import { ValidationState, hex_chars } from './utils.js';
 import type { TextInput } from './components/text_input.js';
 
 //maybe these should all just be inlined instead of in this file?
@@ -63,10 +63,18 @@ export function isParagraph(maybe_paragraph: any): maybe_paragraph is { calculat
 }
 */
 
-export function isDesktopBackgroundInfo(maybe_desktop_bg_info: any): maybe_desktop_bg_info is DesktopBackgroundInfo<DesktopBackgroundTypes> {
-  if (maybe_desktop_bg_info) {
+export function isImage(maybe_image: any): maybe_image is HTMLImageElement {
+  return maybe_image instanceof HTMLImageElement;
+}
+
+export function isHexColor(maybe_color: any): maybe_color is HexColor {
+  return typeof maybe_color === "string" && maybe_color.startsWith("#") && maybe_color.length === 7 && maybe_color.slice(1).split("").every((c) => hex_chars.includes(c.toUpperCase()));
+}
+
+export function isDesktopBackgroundValue(maybe_desktop_bg: any): maybe_desktop_bg is DesktopBackgroundValue {
+  if (maybe_desktop_bg) {
     //so its not the strongest type guard... but good enough, hopefully?
-    if (Object.values(DesktopBackgroundTypes).includes(maybe_desktop_bg_info?.[0]) && maybe_desktop_bg_info?.[1] !== undefined) {
+    if (isImage(maybe_desktop_bg) || isHexColor(maybe_desktop_bg)) {
       return true;
     }
   }
@@ -123,7 +131,7 @@ export function isChangeSettingsValue(maybe_change_settings: any): maybe_change_
 }
 
 export function isChangeDesktopBackgroundValue(maybe_change_desktop: any): maybe_change_desktop is ChangeDesktopBackgroundValue {
-  if (isDesktopBackgroundInfo(maybe_change_desktop?.new_info)) return true;
+  if (isDesktopBackgroundValue(maybe_change_desktop?.new_info)) return true;
   return false;
 }
 

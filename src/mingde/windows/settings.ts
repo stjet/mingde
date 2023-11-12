@@ -1,6 +1,6 @@
 import { Window, WindowMessage, Component, FocusableComponent, Layer } from '../wm.js';
-import { Themes, THEMES_LIST, DesktopBackgroundTypes } from '../themes.js';
-import { isMouseEvent, isFocusableComponent, isTextInput } from '../guards.js';
+import { Themes, THEMES_LIST } from '../themes.js';
+import { isMouseEvent, isFocusableComponent, isTextInput, isHexColor } from '../guards.js';
 import { WindowRequest } from '../requests.js';
 import { WINDOW_TOP_HEIGHT, FONT_SIZES, SCALE } from '../constants.js';
 import { ValidationState } from '../utils.js';
@@ -14,7 +14,6 @@ import { TextInput } from '../components/text_input.js';
 /*
 ideas for settings:
 - changing desktop background
-- changing themes (currently only one tho)
 - change font sizes?
 - toggle highlight buttons
 - toggle gradients
@@ -71,18 +70,36 @@ export class Settings extends Window<SettingsMessage> {
       });
     }));
     this.layers[0].add_member(new TextLine(this, "Background image/colour:", [margin, top_y + (FONT_SIZES.NORMAL * 3) / SCALE + 34], "text_primary", "NORMAL", undefined, true, false));
-    this.layers[0].add_member(new TextInput(this, "#hex or /bgs/img.png...", [margin, top_y + (FONT_SIZES.NORMAL * 3) / SCALE + 38], "NORMAL", 150));
+    this.layers[0].add_member(new TextInput(this, "#hex or /path/to/bg.image...", [margin, top_y + (FONT_SIZES.NORMAL * 3) / SCALE + 38], "NORMAL", 150));
     this.layers[0].add_member(new Button(this, "Change", [margin + 150 + 5, top_y + (FONT_SIZES.NORMAL * 3) / SCALE + 38], 75, 3, () => {
       if (!isTextInput<SettingsMessage | WindowMessage>(this.layers[0].members[5])) return;
       let text_input: TextInput<SettingsMessage | WindowMessage> = this.layers[0].members[5];
-      if (text_input.value.startsWith("#") && text_input.value.length === 7 && text_input.value.slice(1).split("").every((char) => ["a", "b", "c", "d", "e", "f", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(char.toLowerCase()))) {
+      const input_value = text_input.value;
+      if (isHexColor(input_value)) {
         text_input.valid = ValidationState.Valid;
+        //solid background
         this.send_request(WindowRequest.ChangeDesktopBackground, {
-          new_info: [DesktopBackgroundTypes.Solid, text_input.value.toLowerCase()],
+          new_info: input_value,
         });
-      } else if (text_input.value.startsWith("/bg/") && text_input.value.endsWith(".png")) {
+      } else if (text_input.value.startsWith("/") && text_input.value.endsWith(".image")) {
+        //read path
         text_input.valid = ValidationState.Valid;
-        //
+        const response = this.send_request(WindowRequest.ReadFileSystem, {
+          permission_type: "read_all_file_system",
+          path: `/${text_input.value.slice(1)}`, //this is dumb but whatever, type validation
+        });
+        if (typeof response === "undefined") {
+          text_input.valid = ValidationState.Invalid;
+        } else if (typeof response.startsWith("/backgrounds/")) {
+          let bg_image: HTMLImageElement = new Image();
+          bg_image.src = response;
+          this.send_request(WindowRequest.ChangeDesktopBackground, {
+            new_info: bg_image,
+          });
+          text_input.valid = ValidationState.Valid;
+        } else {
+          text_input.valid = ValidationState.Invalid;
+        }
       } else {
         text_input.valid = ValidationState.Invalid;
       }

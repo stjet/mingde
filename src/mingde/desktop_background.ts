@@ -1,8 +1,8 @@
 import { Component, Layer, WindowLike, WindowLikeType, WindowMessage, WindowOptions, DesktopBackgroundMessageStandard } from './wm.js';
 import { WindowRequest, WindowRequestValues } from './requests.js';
-import { DesktopBackgroundTypes, DesktopBackgroundInfo, Themes } from './themes.js';
+import { Themes } from './themes.js';
 import { SCALE } from './constants.js';
-import { isCoords, isDesktopBackgroundInfo } from './guards.js';
+import { isCoords, isDesktopBackgroundValue, isHexColor, isImage } from './guards.js';
 
 export enum DesktopBackgroundMessage {
   //
@@ -57,15 +57,15 @@ export class DesktopBackground implements WindowLike<DesktopBackgroundMessage | 
     //this.render_view isn't supposed to be overriden by anyone, so we can just do most of the stuff there
     this.render_view_window = (theme: Themes, options?: WindowOptions) => {
       if (!this.do_rerender) return;
-      if (isDesktopBackgroundInfo(options?.desktop_background_info) && options) {
+      if (isDesktopBackgroundValue(options?.desktop_background) && options) {
         this.clear();
         //draw the background
-        const bg_info: DesktopBackgroundInfo<DesktopBackgroundTypes> = options.desktop_background_info;
-        if (bg_info[0] === DesktopBackgroundTypes.Solid) {
-          this.context.fillStyle = bg_info[1];
+        if (isHexColor(options.desktop_background)) {
+          this.context.fillStyle = options.desktop_background;
           this.context.fillRect(0, 0, this.size[0], this.size[1]);
+        } else if (isImage(options.desktop_background)) {
+          this.context.drawImage(options.desktop_background, 0, 0, this.size[0], this.size[1]);
         }
-        //handle other types when they exist
       }
       this.render_view(theme);
       this.do_rerender = false;
