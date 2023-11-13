@@ -5,6 +5,7 @@ import { DesktopTime } from './utils.js';
 import { SETTINGS_KEYS } from './mutables.js';
 import { ValidationState, hex_chars } from './utils.js';
 import type { TextInput } from './components/text_input.js';
+import type { Icon } from './components/icon.js';
 
 //maybe these should all just be inlined instead of in this file?
 
@@ -42,6 +43,11 @@ export function isFocusableComponent<MessageType>(maybe_focusable): maybe_focusa
 
 export function isTextInput<MessageType>(maybe_text_input: any): maybe_text_input is TextInput<MessageType> {
   if (maybe_text_input?.type === "text-input" && typeof maybe_text_input?.value === "string" && maybe_text_input?.valid in ValidationState) return true;
+  return false;
+}
+
+export function isIcon<MessageType>(maybe_icon: any): maybe_icon is Icon<MessageType> {
+  if (maybe_icon?.type === "icon") return true;
   return false;
 }
 

@@ -14,12 +14,12 @@ let mingde_logo: HTMLImageElement = new Image();
 mingde_logo.src = "/mingde_logo.png";
 
 export enum ApplicationCategories {
-  Internet = "internet",
   Utils = "utils",
   Games = "games",
   Media = "media",
-  Misc = "misc",
+  Editing = "editing",
   System = "system",
+  Misc = "misc",
 }
 
 export enum StartMenuMessage {

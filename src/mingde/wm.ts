@@ -1024,7 +1024,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           }
           let member;
           try {
-            if (r_info.args.length === 0 && data.args) {
+            if (data.args) {
               member = new (r_info.class)(...data.args);
             } else {
               member = new (r_info.class)(...r_info.args);

@@ -25,28 +25,28 @@ export class Checkbox<MessageType> implements Component<MessageType> {
     this.unchecked_func = unchecked_func;
     this.checked_func = checked_func;
   }
-  render_view(theme: Themes) {
+  render_view(theme: Themes, context: CanvasRenderingContext2D = this.parent.context) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
     const line_width: number = 2 * SCALE;
-    this.parent.context.lineWidth = line_width;
+    context.lineWidth = line_width;
     if (this.get_checked_func()) {
       //show checked box
-      this.parent.context.fillStyle = theme_info.highlight;
-      this.parent.context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
+      context.fillStyle = theme_info.highlight;
+      context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
       //checkmark
       let check: Path2D = new Path2D();
       check.moveTo(this.coords[0] + line_width, this.coords[1] + Math.floor(this.size[1] / 2));
       check.lineTo(this.coords[0] + Math.floor(this.size[0] / 2), this.coords[1] + this.size[1] - line_width);
       check.lineTo(this.coords[0] + this.size[0], this.coords[1] + line_width);
-      this.parent.context.strokeStyle = theme_info.text_highlight;
-      this.parent.context.stroke(check);
+      context.strokeStyle = theme_info.text_highlight;
+      context.stroke(check);
       //border
-      this.parent.context.strokeStyle = theme_info.text_primary;
-      this.parent.context.strokeRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
+      context.strokeStyle = theme_info.text_primary;
+      context.strokeRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
     } else {
       //show unchecked box (just border)
-      this.parent.context.strokeStyle = theme_info.text_primary;
-      this.parent.context.strokeRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
+      context.strokeStyle = theme_info.text_primary;
+      context.strokeRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
     }
   }
   handle_message(message: MessageType | WindowMessage, _data: any): boolean {

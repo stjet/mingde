@@ -8,6 +8,7 @@ import { Bag } from './windows/bag.js';
 import { Shortcuts } from './windows/shortcuts.js';
 import { Terminal } from './windows/terminal.js';
 import { Calculator } from './windows/calculator.js';
+import { ImageViewer } from './windows/image_viewer.js';
 
 export interface Permission {
   change_theme?: boolean;
@@ -108,6 +109,13 @@ export const registry: Registry = {
     display_name: "Bag",
     category: ApplicationCategories.Games,
     name: "bag",
+  },
+  "image_viewer": {
+    class: ImageViewer,
+    args: [[300, 200]],
+    display_name: "Image Viewer",
+    category: ApplicationCategories.Media,
+    name: "image_viewer",
   },
 };
 

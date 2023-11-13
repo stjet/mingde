@@ -17,6 +17,8 @@ export enum Themes {
 
 export const THEMES_LIST: Themes[] = [Themes.Standard, Themes.Night, Themes.Forest, Themes.Attention, Themes.Industrial, Themes.Traffic, Themes.Binary, Themes.Royal, Themes.Reef];
 
+export const DARK_THEMES: Themes[] = [Themes.Night, Themes.Binary];
+
 export interface ThemeInfo {
   top: string;
   text_primary: string;

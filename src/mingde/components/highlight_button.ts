@@ -27,18 +27,18 @@ export class HighlightButton<MessageType> implements Component<MessageType> {
     this.highlighted = false;
     this.click_func = click_func;
   }
-  render_view(theme: Themes) {
+  render_view(theme: Themes, context: CanvasRenderingContext2D = this.parent.context) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
     if (this.highlighted) {
-      this.parent.context.fillStyle = theme_info.highlight;
-      this.parent.context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
-      this.parent.context.fillStyle = theme_info.text_highlight;
+      context.fillStyle = theme_info.highlight;
+      context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
+      context.fillStyle = theme_info.text_highlight;
     } else {
-      this.parent.context.fillStyle = theme_info.text_primary;
+      context.fillStyle = theme_info.text_primary;
     }
     const height = this.padding_y * 2 + FONT_SIZES.BUTTON;
-    this.parent.context.font = `${FONT_SIZES.BUTTON}px ${FONT_NAME}`;
-    this.parent.context.fillText(this.text, this.coords[0] + this.padding_y, this.coords[1] + height - this.padding_y);
+    context.font = `${FONT_SIZES.BUTTON}px ${FONT_NAME}`;
+    context.fillText(this.text, this.coords[0] + this.padding_y, this.coords[1] + height - this.padding_y);
   }
   handle_message(message: MessageType | WindowMessage, data: any): boolean {
     //mousedown, mousemove, mouse move outside?

@@ -144,7 +144,21 @@ const command_info: Record<string, CommandInfo> = {
     max: -1,
     min: 3,
   },
-  //tail, head, grep
+  //tail, head, range, grep
+  tail: {
+    usage: "tail [file path] [n lines]",
+    short: "Returns last n lines of file",
+    long: "Returns last n lines of file",
+    max: 2,
+    min: 2,
+  },
+  head: {
+    usage: "head [file path] [n lines]",
+    short: "Returns first n lines of file",
+    long: "Returns first n lines of file",
+    max: 2,
+    min: 2,
+  },
   //
   //echo
   echo: {
@@ -159,6 +173,13 @@ const command_info: Record<string, CommandInfo> = {
     usage: "terminal",
     short: "Open the terminal window",
     long: "Open the terminal window",
+    max: 0,
+    min: 0,
+  },
+  calculator: {
+    usage: "calculator",
+    short: "Open the calculator window",
+    long: "Open the calculator window",
     max: 0,
     min: 0,
   },
@@ -195,6 +216,13 @@ const command_info: Record<string, CommandInfo> = {
     short: "Open the bag window",
     long: "Open the bag window",
     max: 0,
+    min: 0,
+  },
+  image_viewer: {
+    usage: "image_viewer [optional: path to file]",
+    short: "Open the image viewer window",
+    long: "Open the image viewer window, with the path prefilled in input box, if specified",
+    max: 1,
     min: 0,
   },
   //exit
@@ -569,7 +597,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         path: count_path,
       });
       if (typeof response === "undefined") {
-        return "does not exist or missing perms";
+        return "Does not exist or or command needs to be rerun after read_all_file_system permission granted.";
       } else if (typeof response === "string") {
         return "file";
       } else if (typeof response === "object") {
@@ -602,14 +630,55 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         }
       }
       return String(result);
+    } else if (command === "tail") {
+      const tail_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      const response = this.send_request(WindowRequest.ReadFileSystem, {
+        permission_type: "read_all_file_system",
+        path: tail_path,
+      });
+      if (typeof response === "undefined") {
+        return "Does not exist or or command needs to be rerun after read_all_file_system permission granted.";
+      } else if (typeof response === "string") {
+        const n: number = Number(parts[1]);
+        if (isNaN(n) || n <= 0) return "Second argument must be a positive, non-zero number";
+        return response.split(" \n ").slice(-n).join(" \n ");
+      } else if (typeof response === "object") {
+        return "Path must lead to file, not directory";
+      }
+    } else if (command === "head") {
+      const head_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      const response = this.send_request(WindowRequest.ReadFileSystem, {
+        permission_type: "read_all_file_system",
+        path: head_path,
+      });
+      if (typeof response === "undefined") {
+        return "Does not exist or or command needs to be rerun after read_all_file_system permission granted.";
+      } else if (typeof response === "string") {
+        const n: number = Number(parts[1]);
+        if (isNaN(n) || n < 0 || parts[1].trim() === "") return "Second argument must be a positive number";
+        return response.split(" \n ").slice(0, n).join(" \n ");
+      } else if (typeof response === "object") {
+        return "Path must lead to file, not directory";
+      }
     } else if (command === "echo") {
       return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
-    } else if (command === "terminal" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag") {
+    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {
         name: command,
         open_layer_name: "windows",
         unique: false,
+        //sub_size_y: true,
+      });
+      return `Trying to open ${command}...`;
+    } else if (command === "image_viewer") {
+      //if this.secret not given to OpenWindow request, wm will ask user for permission
+      if (parts[0] && !parts[0].startsWith("/")) return "First argument, if specified, must be a path";
+      this.send_request(WindowRequest.OpenWindow, {
+        name: "image_viewer",
+        open_layer_name: "windows",
+        unique: false,
+        args: [[300, 200], parts[0] ? `/${parts[0].slice(1)}` : undefined],
         //sub_size_y: true,
       });
       return `Trying to open ${command}...`;

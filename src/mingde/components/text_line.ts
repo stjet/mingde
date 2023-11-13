@@ -30,27 +30,27 @@ export class TextLine<MessageType> implements Component<MessageType> {
     //placeholder until width, height calculated
     this.size = [0, 0];
   }
-  render_view(theme: Themes) {
+  render_view(theme: Themes, context: CanvasRenderingContext2D = this.parent.context) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
-    this.parent.context.font = `${this.bold ? "bold " : ""}${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
-    this.parent.context.fillStyle = theme_info[this.color];
-    this.parent.context.textBaseline = "bottom";
+    context.font = `${this.bold ? "bold " : ""}${FONT_SIZES[this.font_size]}px ${FONT_NAME}`;
+    context.fillStyle = theme_info[this.color];
+    context.textBaseline = "bottom";
     if (this.max_width && this.ellipsis) {
-      let measured_width: number = this.parent.context.measureText(this.text).width;
+      let measured_width: number = context.measureText(this.text).width;
       if (measured_width > this.max_width) {
         let e_text: string = this.text.slice(0, -3);
         for (let i = 0; i < this.text.length - 3; i++) {
-          let new_measured_width: number = this.parent.context.measureText(e_text.trimEnd()+"...").width;
+          let new_measured_width: number = context.measureText(e_text.trimEnd()+"...").width;
           if (new_measured_width < this.max_width) {
             break;
           }
           e_text = e_text.slice(0, -1);
         }
-        this.parent.context.fillText(e_text.trimEnd()+"...", this.coords[0], this.coords[1]);
+        context.fillText(e_text.trimEnd()+"...", this.coords[0], this.coords[1]);
         return;
       }
     }
-    this.parent.context.fillText(this.text, this.coords[0], this.coords[1], this.max_width);
+    context.fillText(this.text, this.coords[0], this.coords[1], this.max_width);
   }
   handle_message(_message: MessageType | WindowMessage, _data: any) {
     //text line doesn't really care about messages I think?

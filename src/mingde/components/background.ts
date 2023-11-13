@@ -21,10 +21,10 @@ export class Background<MessageType> implements Component<MessageType> {
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
     this.size = [size[0] * SCALE, size[1] * SCALE];
   }
-  render_view(theme: Themes) {
+  render_view(theme: Themes, context: CanvasRenderingContext2D = this.parent.context) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
-    this.parent.context.fillStyle = this.background_color ? this.background_color : theme_info.background;
-    this.parent.context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
+    context.fillStyle = this.background_color ? this.background_color : theme_info.background;
+    context.fillRect(this.coords[0], this.coords[1], this.size[0], this.size[1]);
   }
   handle_message(_message: MessageType | WindowMessage, _data: any) {
     //deliberately left empty

@@ -123,7 +123,6 @@ export class VerticalScrollable<MessageType> extends Window<VerticalScrollableMe
       this.scroll_y = (this.scroll_y - data) < 0 ? 0 : this.scroll_y - data;
       this.do_rerender = true;
     } else if (message === VerticalScrollableMessage.ScrollDown && typeof data === "number") {
-      console.log(this.scroll_y + data > this.entire_height);
       this.scroll_y = (this.scroll_y + data) > this.entire_height - this.size[1] ? this.entire_height - this.size[1] : this.scroll_y + data;
       this.do_rerender = true;
     }

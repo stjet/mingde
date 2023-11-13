@@ -83,10 +83,9 @@ export class Settings extends Window<SettingsMessage> {
         });
       } else if (text_input.value.startsWith("/") && text_input.value.endsWith(".image")) {
         //read path
-        text_input.valid = ValidationState.Valid;
         const response = this.send_request(WindowRequest.ReadFileSystem, {
           permission_type: "read_all_file_system",
-          path: `/${text_input.value.slice(1)}`, //this is dumb but whatever, type validation
+          path: `/${input_value.slice(1)}`, //this is dumb but whatever, type validation
         });
         if (typeof response === "undefined") {
           text_input.valid = ValidationState.Invalid;
