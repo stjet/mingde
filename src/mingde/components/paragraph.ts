@@ -85,6 +85,7 @@ export class Paragraph<MessageType> implements Component<MessageType> {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
     context.font = `${FONT_SIZES[this.font_size]}px ${ this.monospace ? FONT_NAME_MONO : FONT_NAME }`;
     context.fillStyle = theme_info[this.color];
+    context.textBaseline = "bottom";
     //if needed, calculate lines
     if (this.cached_theme !== theme) {
       this.lines = this.calculate_lines();

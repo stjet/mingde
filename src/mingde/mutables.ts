@@ -1,7 +1,7 @@
 //like constants.ts but not constants
 
 type Direction = "up" | "down" | "left" | "right";
-export type GenericShortcut = "up" | "down";
+export type GenericShortcut = "up" | "down" | "cycle-focus-left" | "cycle-focus-right" | "cycle-focus-cancel";
 export type Shortcut = "close-window" | "fullscreen-toggle-window" | "start-menu" | `switch-${number}` | `move-window-${Direction}` | "cycle-left" | "cycle-right" | GenericShortcut;
 
 //all are alt+
@@ -28,6 +28,9 @@ export let SHORTCUTS: Record<Shortcut, string[]> = {
   //generic (not linked to a specific global action if that makes sense) actions for windows to hear and stuff
   "up": ["ArrowUp"],
   "down": ["ArrowDown"],
+  "cycle-focus-left": ["n"],
+  "cycle-focus-right": ["m"],
+  "cycle-focus-cancel": [","],
 };
 
 export interface WindowManagerSettings {

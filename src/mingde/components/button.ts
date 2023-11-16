@@ -1,6 +1,7 @@
-import { Component, WindowLike, WindowMessage } from '../wm.js';
+import { FocusableComponent, WindowLike, WindowMessage } from '../wm.js';
 import { Themes, ThemeInfo, THEME_INFOS, DARK_THEMES } from '../themes.js';
-import { SCALE, FONT_NAME, FONT_SIZES } from '../constants.js';
+import { CONFIG, SCALE, FONT_NAME, FONT_SIZES } from '../constants.js';
+import { isKeyboardEvent } from '../guards.js';
 
 export enum Alignment {
   Centre,
@@ -8,7 +9,8 @@ export enum Alignment {
   Right,
 }
 
-export class Button<MessageType> implements Component<MessageType> {
+//focusable so keyboard only can still use buttons
+export class Button<MessageType> implements FocusableComponent<MessageType> {
   readonly type: string = "button";
   clickable: boolean = true;
 
@@ -27,6 +29,8 @@ export class Button<MessageType> implements Component<MessageType> {
   text_color?: string;
   dark_text_color?: string;
 
+  focused: boolean;
+
   constructor(parent: WindowLike<MessageType | WindowMessage>, text: string, coords: [number, number], width: number, padding_y: number, click_func: () => void, bold: boolean = false, inverted: boolean = false, alignment: Alignment = Alignment.Centre, small: boolean = false, text_color?: string, dark_text_color?: string) {
     //I am not a fan of parameter properties
     this.id = `${parent.id}-${this.type}-random-${Math.floor(Math.random() * 10000)}`; //dumb, but placeholder, kinda
@@ -43,6 +47,7 @@ export class Button<MessageType> implements Component<MessageType> {
     this.small = small;
     this.text_color = text_color;
     this.dark_text_color = dark_text_color;
+    this.focused = false;
   }
   render_view(theme: Themes, context: CanvasRenderingContext2D = this.parent.context) {
     const theme_info: ThemeInfo = THEME_INFOS[theme];
@@ -51,7 +56,12 @@ export class Button<MessageType> implements Component<MessageType> {
     const height = this.padding_y * 2 + (this.small ? FONT_SIZES.BUTTON_SMALL : FONT_SIZES.BUTTON);
     //draw button background
     context.fillStyle = theme_info.background;
+    if (this.focused && CONFIG.SHADOWS) {
+      context.shadowColor = "blue";
+      context.shadowBlur = 10 * SCALE;
+    }
     context.fillRect(this.coords[0], this.coords[1], this.width, height);
+    context.shadowBlur = 0;
     //draw button text, coords are text's lower left corner
     //default to text_primary, unless different colour specified (if a dark theme, will also do something. just read the code)
     context.fillStyle = DARK_THEMES.includes(theme) ? (this.dark_text_color ? this.dark_text_color || theme_info.text_primary : this.text_color || theme_info.text_primary) : this.text_color || theme_info.text_primary;
@@ -99,11 +109,33 @@ export class Button<MessageType> implements Component<MessageType> {
     context.stroke(border_left_top);
     //this.size = [this.width, height];
   }
-  handle_message(message: MessageType | WindowMessage, _data: any): boolean {
+  focus(): boolean {
+    if (!this.focused) {
+      this.focused = true;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  unfocus(): boolean {
+    if (this.focused) {
+      this.focused = false;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  //focus is not changed through message to button, but rather by the window calling focus() or unfocus()
+  handle_message(message: MessageType | WindowMessage, data: any): boolean {
     //change colours on click and hover or whatever also
     if (message === WindowMessage.MouseDown) {
-      this.click_func();
+      this.click_func(); //perhaps return this instead of always true
       return true;
+    } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      if (data.key === "Enter" && this.focused) {
+        this.click_func();
+        return true;
+      }
     }
     //
     return false;

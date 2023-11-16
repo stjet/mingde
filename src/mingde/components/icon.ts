@@ -20,7 +20,6 @@ export class Icon<MessageType> implements Component<MessageType> {
   }
   render_view(_theme: Themes, context: CanvasRenderingContext2D = this.parent.context) {
     if (this.image) {
-      console.log("a")
       context.drawImage(this.image, this.coords[0], this.coords[1], this.size[0], this.size[1]);
     }
   }

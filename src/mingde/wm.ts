@@ -406,6 +406,12 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               this.handle_message(WindowMessage.GenericShortcut, "up");
             } else if (SHORTCUTS["down"].includes(data.key)) {
               this.handle_message(WindowMessage.GenericShortcut, "down");
+            } else if (SHORTCUTS["cycle-focus-left"].includes(data.key)) {
+              this.handle_message(WindowMessage.GenericShortcut, "cycle-focus-left");
+            } else if (SHORTCUTS["cycle-focus-right"].includes(data.key)) {
+              this.handle_message(WindowMessage.GenericShortcut, "cycle-focus-right");
+            } else if (SHORTCUTS["cycle-focus-cancel"].includes(data.key)) {
+              this.handle_message(WindowMessage.GenericShortcut, "cycle-focus-cancel");
             } else if (SHORTCUTS["move-window-left"].includes(data.key)) {
               this.send_request(WindowRequest.ChangeCoords, {
                 delta_coords: [-15, 0],

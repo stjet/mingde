@@ -9,6 +9,7 @@ import { Shortcuts } from './windows/shortcuts.js';
 import { Terminal } from './windows/terminal.js';
 import { Calculator } from './windows/calculator.js';
 import { ImageViewer } from './windows/image_viewer.js';
+import { Notepad } from './windows/notepad.js';
 
 export interface Permission {
   change_theme?: boolean;
@@ -116,6 +117,13 @@ export const registry: Registry = {
     display_name: "Image Viewer",
     category: ApplicationCategories.Media,
     name: "image_viewer",
+  },
+  "notepad": {
+    class: Notepad,
+    args: [[375, 300]],
+    display_name: "Notepad",
+    category: ApplicationCategories.Editing,
+    name: "notepad",
   },
 };
 

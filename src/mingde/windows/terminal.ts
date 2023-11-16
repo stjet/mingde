@@ -218,6 +218,13 @@ const command_info: Record<string, CommandInfo> = {
     max: 0,
     min: 0,
   },
+  notepad: {
+    usage: "notepad",
+    short: "Open the notepad window",
+    long: "Open the notepad window",
+    max: 0,
+    min: 0,
+  },
   image_viewer: {
     usage: "image_viewer [optional: path to file]",
     short: "Open the image viewer window",
@@ -662,7 +669,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
     } else if (command === "echo") {
       return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
-    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag") {
+    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "notepad") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {
         name: command,
