@@ -1,5 +1,5 @@
-import { Window, WindowMessage, Component } from './wm.js';
-import { isWheelEvent, isMouseEvent } from './guards.js';
+import { Window, WindowMessage, Component, FocusableComponent } from './wm.js';
+import { isWheelEvent, isMouseEvent, isFocusableComponent, isKeyboardEvent } from './guards.js';
 import { Themes, ThemeInfo, THEME_INFOS } from './themes.js';
 import { SCROLLBAR_WIDTH, WINDOW_TOP_HEIGHT, SCALE, SCROLLBAR_BUTTON_HEIGHT, FONT_SIZES, SCROLL_DISTANCE } from './constants.js';
 import { Alignment, Button } from './components/button.js';
@@ -127,6 +127,58 @@ export class VerticalScrollable<MessageType> extends Window<VerticalScrollableMe
       this.do_rerender = true;
     }
     //
+    return this.do_rerender;
+  }
+}
+
+export class VerticalScrollableWithFocus<MessageType> extends VerticalScrollable<MessageType> {
+  focus_index?: number;
+
+  //can be overwritten
+  get components(): Component<MessageType | WindowMessage>[] {
+    return this.layers.filter((layer) => !layer.hide).map((layer) => layer.members).flat();
+  }
+  //meant to be called by classes extending it
+  handle_message(message: MessageType | WindowMessage, data: any): boolean {
+    if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      if (data.key === "Enter" && !data.altKey) {
+        //send the keypress to focused components as they might do something with the keypress
+        return this.components.filter((c): c is FocusableComponent<MessageType | WindowMessage> => isFocusableComponent<MessageType | WindowMessage>(c)).filter((c) => c.focused).map((c) => c.handle_message(message, data)).some((r) => r);
+      }
+    } else if (message === WindowMessage.GenericShortcut) {
+      if (data === "cycle-focus-left" || data === "cycle-focus-right") {
+        const focusable_components: FocusableComponent<MessageType | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<MessageType | WindowMessage> => isFocusableComponent<MessageType | WindowMessage>(c));
+        if (typeof this.focus_index === "undefined") {
+          this.focus_index = 0;
+        } else {
+          focusable_components[this.focus_index].unfocus();
+          if (data === "cycle-focus-left") {
+            this.focus_index--;
+            if (this.focus_index < 0) {
+              this.focus_index = focusable_components.length - 1;
+            }
+          } else if (data === "cycle-focus-right") {
+            this.focus_index++;
+            if (this.focus_index >= focusable_components.length) {
+              this.focus_index = 0;
+            }
+          }
+        }
+        focusable_components[this.focus_index].focus();
+        this.do_rerender = true;
+      } else if (data === "cycle-focus-cancel" && typeof this.focus_index === "number") {
+        const focusable_components: FocusableComponent<MessageType | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<MessageType | WindowMessage> => isFocusableComponent<MessageType | WindowMessage>(c));
+        focusable_components[this.focus_index].unfocus();
+        this.focus_index = undefined;
+        this.do_rerender = true;
+      } else {
+        //calls vertical scrollable
+        this.do_rerender = super.handle_message(message, data);
+      }
+    } else {
+      //calls vertical scrollable
+      this.do_rerender = super.handle_message(message, data);
+    }
     return this.do_rerender;
   }
 }

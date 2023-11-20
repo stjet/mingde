@@ -3,7 +3,8 @@
     "beforeBuildCommand": "npm run build --prefix ./src",
     "beforeDevCommand": "npm run dev --prefix ./src",
     "devPath": "http://localhost:1381",
-    "distDir": "../src"
+    "distDir": "../src",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "mingde",

@@ -49,14 +49,24 @@ export class Bag extends Window<BagMessage> {
     this.grid = Bag.generate_grid();
     this.playing = true;
     this.layers = [new Layer(this, "win", false, true)];
-    this.layers[0].add_member(new Background(this, "rgba(0, 0, 0, 0.5)", [0, WINDOW_TOP_HEIGHT / SCALE], [this.size[0] / SCALE, this.size[1] / SCALE]));
-    this.layers[0].add_member(new Background(this, undefined, [50, WINDOW_TOP_HEIGHT / SCALE + 50], [this.size[0] / SCALE - 100, this.size[1] / SCALE - WINDOW_TOP_HEIGHT / SCALE - 100]));
     this.context.font = `bold ${FONT_SIZES.HEADING}px ${FONT_NAME}`;
     let won_width: number = this.context.measureText("You Won").width / SCALE;
-    this.layers[0].add_member(new TextLine(this, "You Won", [this.size[0] / SCALE / 2 - won_width / 2, this.size[1] / SCALE - 125], "text_primary", "HEADING"));
-    this.layers[0].add_member(new Button(this, "Play again", [this.size[0] / SCALE / 2 - 50, this.size[1] / SCALE - 100], 100, 4, () => {
-      this.handle_message(BagMessage.NewGame, true);
-    }));
+    this.layers[0].add_members(
+      {
+        member: new Background(this, "rgba(0, 0, 0, 0.5)", [0, WINDOW_TOP_HEIGHT / SCALE], [this.size[0] / SCALE, this.size[1] / SCALE]),
+      },
+      {
+        member: new Background(this, undefined, [50, WINDOW_TOP_HEIGHT / SCALE + 50], [this.size[0] / SCALE - 100, this.size[1] / SCALE - WINDOW_TOP_HEIGHT / SCALE - 100]),
+      },
+      {
+        member: new TextLine(this, "You Won", [this.size[0] / SCALE / 2 - won_width / 2, this.size[1] / SCALE - 125], "text_primary", "HEADING"),
+      },
+      {
+        member: new Button(this, "Play again", [this.size[0] / SCALE / 2 - 50, this.size[1] / SCALE - 100], 100, 4, () => {
+          this.handle_message(BagMessage.NewGame, true);
+        }),
+      },
+    );
   }
   static has_one_continuous_loop(grid: CellInfo[][]): boolean {
     let random_cell: CellInfo = grid.flat().find((cell) => cell.in_loop);

@@ -1,6 +1,6 @@
-import { Window, WindowMessage, Component, FocusableComponent, Layer } from '../wm.js';
+import { WindowWithFocus, WindowMessage, Layer } from '../wm.js';
 import { WindowRequest } from '../requests.js';
-import { isMouseEvent, isKeyboardEvent, isFocusableComponent } from '../guards.js';
+import { isMouseEvent } from '../guards.js';
 import { FONT_SIZES, SCALE, WINDOW_TOP_HEIGHT } from '../constants.js';
 import type { Permission } from '../registry.js';
 import type { Themes } from '../themes.js';
@@ -17,11 +17,10 @@ enum AllowBoxMessage {
   //
 }
 
-export class AllowBox extends Window<AllowBoxMessage> {
+export class AllowBox extends WindowWithFocus<AllowBoxMessage> {
   private id_perm: string;
   private permission: keyof Permission;
   private allow_func: () => void;
-  private focus_index?: number;
 
   constructor(id_perm: string, permission: keyof Permission, allow_func: () => void) {
     super(allow_box_size, `Asking to ${permission}`, "allow-box", false);
@@ -40,9 +39,6 @@ export class AllowBox extends Window<AllowBoxMessage> {
       this.allow_func();
     }));
   }
-  get components(): Component<AllowBoxMessage | WindowMessage>[] {
-    return this.layers.filter((layer) => !layer.hide).map((layer) => layer.members).flat();
-  }
   render_view(theme: Themes) {
     let components = this.components;
     for (let j = 0; j < components.length; j++) {
@@ -58,38 +54,8 @@ export class AllowBox extends Window<AllowBoxMessage> {
       if (relevant_components.length > 0) {
         this.do_rerender = true;
       }
-    } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
-      if (data.key === "Enter" && !data.altKey) {
-        //send the keypress to focused components as they might do something with the keypress
-        return this.components.filter((c): c is FocusableComponent<AllowBoxMessage | WindowMessage> => isFocusableComponent<AllowBoxMessage | WindowMessage>(c)).filter((c) => c.focused).some((c) => c.handle_message(message, data));
-      }
-    } else if (message === WindowMessage.GenericShortcut) {
-      if (data === "cycle-focus-left" || data === "cycle-focus-right") {
-        const focusable_components: FocusableComponent<AllowBoxMessage | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<AllowBoxMessage | WindowMessage> => isFocusableComponent<AllowBoxMessage | WindowMessage>(c));
-        if (typeof this.focus_index === "undefined") {
-          this.focus_index = 0;
-        } else {
-          focusable_components[this.focus_index].unfocus();
-          if (data === "cycle-focus-left") {
-            this.focus_index--;
-            if (this.focus_index < 0) {
-              this.focus_index = focusable_components.length - 1;
-            }
-          } else if (data === "cycle-focus-right") {
-            this.focus_index++;
-            if (this.focus_index >= focusable_components.length) {
-              this.focus_index = 0;
-            }
-          }
-        }
-        focusable_components[this.focus_index].focus();
-        this.do_rerender = true;
-      } else if (data === "cycle-focus-cancel" && typeof this.focus_index === "number") {
-        const focusable_components: FocusableComponent<AllowBoxMessage | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<AllowBoxMessage | WindowMessage> => isFocusableComponent<AllowBoxMessage | WindowMessage>(c));
-        focusable_components[this.focus_index].unfocus();
-        this.focus_index = undefined;
-        this.do_rerender = true;
-      }
+    } else {
+      this.do_rerender = super.handle_message(message, data);
     }
     return this.do_rerender;
   }

@@ -1,13 +1,14 @@
-import { Component, WindowLike, WindowMessage } from '../wm.js';
+import { FocusableComponent, WindowLike, WindowMessage } from '../wm.js';
 import { Themes, ThemeInfo, THEME_INFOS } from '../themes.js';
-import { SCALE, FONT_SIZES, FONT_NAME } from '../constants.js';
-import { isMouseEvent } from '../guards.js';
+import { CONFIG, SCALE, FONT_SIZES, FONT_NAME } from '../constants.js';
+import { isMouseEvent, isKeyboardEvent } from '../guards.js';
 
 //left and right buttons on the left and right, then text of the current state in the middle
 
 const left_right_width: number = 20 * SCALE;
 
-export class Carousel<MessageType> implements Component<MessageType> {
+//if focused, focus only the right (easier)
+export class Carousel<MessageType> implements FocusableComponent<MessageType> {
   readonly type: string = "carousel";
   clickable: boolean = true;
 
@@ -22,6 +23,8 @@ export class Carousel<MessageType> implements Component<MessageType> {
   readonly change_value_left: () => void;
   readonly change_value_right: () => void;
 
+  focused: boolean;
+
   constructor(parent: WindowLike<MessageType | WindowMessage>, coords: [number, number], padding_y: number, inner_width: number, get_value: () => string, change_value_left: () => void, change_value_right: () => void) {
     this.parent = parent;
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
@@ -31,11 +34,17 @@ export class Carousel<MessageType> implements Component<MessageType> {
     this.get_value = get_value;
     this.change_value_left = change_value_left;
     this.change_value_right = change_value_right;
+    this.focused = false;
   }
-  draw_button(text: string, coords: [number, number], theme_info: ThemeInfo, context: CanvasRenderingContext2D = this.parent.context) {
+  draw_button(text: string, coords: [number, number], theme_info: ThemeInfo, context: CanvasRenderingContext2D = this.parent.context, focused?: boolean) {
+    if (focused && CONFIG.SHADOWS) {
+      context.shadowColor = "blue";
+      context.shadowBlur = 10 * SCALE;
+    }
     const measured = context.measureText(text);
     context.fillStyle = theme_info.background;
     context.fillRect(coords[0], coords[1], left_right_width, this.size[1]);
+    context.shadowBlur = 0;
     context.fillStyle = theme_info.text_primary;
     context.fillText(text, coords[0] + (left_right_width - measured.width) / 2, coords[1] + this.size[1] - this.padding_y);
     context.lineWidth = 2 * SCALE;
@@ -66,7 +75,24 @@ export class Carousel<MessageType> implements Component<MessageType> {
     this.draw_button("<", this.coords, theme_info, context);
     //draw right button
     //right button is always in constant position regardless of text length, cause it is annoying when buttons move
-    this.draw_button(">", [this.coords[0] + this.size[0] - left_right_width, this.coords[1]], theme_info, context);
+    this.draw_button(">", [this.coords[0] + this.size[0] - left_right_width, this.coords[1]], theme_info, context, this.focused);
+  }
+  //this code is repeated quite a few times - maybe FocusableComponent should be a class? eh, probably not
+  focus(): boolean {
+    if (!this.focused) {
+      this.focused = true;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  unfocus(): boolean {
+    if (this.focused) {
+      this.focused = false;
+      return true;
+    } else {
+      return false;
+    }
   }
   handle_message(message: MessageType | WindowMessage, data: any): boolean {
     if (message === WindowMessage.MouseDown && isMouseEvent(data)) {
@@ -75,6 +101,11 @@ export class Carousel<MessageType> implements Component<MessageType> {
         this.change_value_left();
         return true;
       } else if (data.clientX > this.coords[0] + this.size[0] - left_right_width) {
+        this.change_value_right();
+        return true;
+      }
+    } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      if (data.key === "Enter" && this.focused) {
         this.change_value_right();
         return true;
       }

@@ -1,5 +1,5 @@
 import { WindowMessage, Component, FocusableComponent } from '../wm.js';
-import { VerticalScrollable } from '../vertical_scrollable.js';
+import { VerticalScrollableWithFocus } from '../vertical_scrollable.js';
 import { Themes } from '../themes.js';
 import { WINDOW_TOP_HEIGHT, SCALE, SCROLLBAR_WIDTH } from '../constants.js';
 import { WindowRequest } from '../requests.js';
@@ -15,15 +15,14 @@ enum ImageViewerMessage {
   //
 }
 
-export class ImageViewer extends VerticalScrollable<ImageViewerMessage> {
-  components: Component<ImageViewerMessage | WindowMessage>[];
+export class ImageViewer extends VerticalScrollableWithFocus<ImageViewerMessage> {
+  private _components: Component<ImageViewerMessage | WindowMessage>[];
   image?: HTMLImageElement;
-  private focus_index?: number;
 
   //path to default to, user still needs to click the button though
   constructor(size: [number, number], path?: Path) {
     super(size, "Image Viewer", size[1], "image_viewer");
-    this.components = [
+    this._components = [
       new TextInput(this, "/path/to/file.image", [5, WINDOW_TOP_HEIGHT / SCALE + 5], "NORMAL", 150, path),
       new Button(this, "View", [160, WINDOW_TOP_HEIGHT / SCALE + 5], 75, 3, () => {
         if (!isTextInput<ImageViewerMessage | WindowMessage>(this.components[0])) return;
@@ -54,6 +53,9 @@ export class ImageViewer extends VerticalScrollable<ImageViewerMessage> {
       new Icon(this, [5, WINDOW_TOP_HEIGHT / SCALE + 30], [0, 0], undefined),
     ];
     //
+  }
+  get components(): Component<ImageViewerMessage | WindowMessage>[] {
+    return this._components;
   }
   render_view(theme: Themes) {
     let components = this.components;
@@ -88,11 +90,8 @@ export class ImageViewer extends VerticalScrollable<ImageViewerMessage> {
             this.do_rerender = true;
           }
         }
-      } else if (data.key === "Enter" && !data.altKey) {
-        //send the keypress to focused components as they might do something with the keypress
-        return this.components.filter((c): c is FocusableComponent<ImageViewerMessage | WindowMessage> => isFocusableComponent<ImageViewerMessage | WindowMessage>(c)).filter((c) => c.focused).some((c) => c.handle_message(message, data));
       } else {
-        return super.handle_message(message, data);
+        this.do_rerender = super.handle_message(message, data);
       }
     } else if (message === WindowMessage.WindowResize) {
       if (!isIcon<ImageViewerMessage | WindowMessage>(this.components[2])) return;
@@ -103,36 +102,9 @@ export class ImageViewer extends VerticalScrollable<ImageViewerMessage> {
         this.entire_height = WINDOW_TOP_HEIGHT + 30 * SCALE + icon.size[1] + 5;
         this.entire_canvas.height = this.entire_height;
       }
-      return super.handle_message(message, data); //will return `true`
-    } else if (message === WindowMessage.GenericShortcut) {
-      if (data === "cycle-focus-left" || data === "cycle-focus-right") {
-        const focusable_components: FocusableComponent<ImageViewerMessage | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<ImageViewerMessage | WindowMessage> => isFocusableComponent<ImageViewerMessage | WindowMessage>(c));
-        if (typeof this.focus_index === "undefined") {
-          this.focus_index = 0;
-        } else {
-          focusable_components[this.focus_index].unfocus();
-          if (data === "cycle-focus-left") {
-            this.focus_index--;
-            if (this.focus_index < 0) {
-              this.focus_index = focusable_components.length - 1;
-            }
-          } else if (data === "cycle-focus-right") {
-            this.focus_index++;
-            if (this.focus_index >= focusable_components.length) {
-              this.focus_index = 0;
-            }
-          }
-        }
-        focusable_components[this.focus_index].focus();
-        this.do_rerender = true;
-      } else if (data === "cycle-focus-cancel" && typeof this.focus_index === "number") {
-        const focusable_components: FocusableComponent<ImageViewerMessage | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<ImageViewerMessage | WindowMessage> => isFocusableComponent<ImageViewerMessage | WindowMessage>(c));
-        focusable_components[this.focus_index].unfocus();
-        this.focus_index = undefined;
-        this.do_rerender = true;
-      }
+      this.do_rerender = super.handle_message(message, data); //will return `true`
     } else {
-      return super.handle_message(message, data);
+      this.do_rerender = super.handle_message(message, data);
     }
     return this.do_rerender;
   }

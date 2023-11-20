@@ -40,13 +40,25 @@ export class Reversi extends Window<ReversiMessage> {
     this.white_turn = true;
     this.possible_moves = Reversi.calculate_moves(this.board, this.white_turn);
     this.layers = [new Layer(this, "game_end", false, true)];
-    this.layers[0].add_member(new Background(this, "rgba(0, 0, 0, 0.5)", [0, WINDOW_TOP_HEIGHT / SCALE], [this.size[0] / SCALE, this.size[1] / SCALE]));
-    this.layers[0].add_member(new Background(this, undefined, [60, WINDOW_TOP_HEIGHT / SCALE + 60], [this.size[0] / SCALE - 120, this.size[1] / SCALE - WINDOW_TOP_HEIGHT / SCALE - 120]));
-    this.layers[0].add_member(new TextLine(this, "Placeholder, someone won or it was a tie", [0, WINDOW_TOP_HEIGHT / SCALE + 120], "text_primary", "HEADING"));
-    this.layers[0].add_member(new TextLine(this, "Placeholder about tile count", [0, WINDOW_TOP_HEIGHT / SCALE + 150], "text_primary", "NORMAL"));
-    this.layers[0].add_member(new Button(this, "Play again", [this.size[0] / SCALE / 2 - 50, this.size[1] / SCALE - 125], 100, 4, () => {
-      this.handle_message(ReversiMessage.NewGame, true);
-    }));
+    this.layers[0].add_members(
+      {
+        member: new Background(this, "rgba(0, 0, 0, 0.5)", [0, WINDOW_TOP_HEIGHT / SCALE], [this.size[0] / SCALE, this.size[1] / SCALE])
+      },
+      {
+        member: new Background(this, undefined, [60, WINDOW_TOP_HEIGHT / SCALE + 60], [this.size[0] / SCALE - 120, this.size[1] / SCALE - WINDOW_TOP_HEIGHT / SCALE - 120]),
+      },
+      {
+        member: new TextLine(this, "Placeholder, someone won or it was a tie", [0, WINDOW_TOP_HEIGHT / SCALE + 120], "text_primary", "HEADING")
+      },
+      {
+        member: new TextLine(this, "Placeholder about tile count", [0, WINDOW_TOP_HEIGHT / SCALE + 150], "text_primary", "NORMAL")
+      },
+      {
+        member: new Button(this, "Play again", [this.size[0] / SCALE / 2 - 50, this.size[1] / SCALE - 125], 100, 4, () => {
+          this.handle_message(ReversiMessage.NewGame, true);
+        }),
+      },
+    );
   }
   get components(): Component<ReversiMessage | WindowMessage>[] {
     return this.layers.filter((layer) => !layer.hide).map((layer) => layer.members).flat();

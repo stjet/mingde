@@ -10,6 +10,7 @@ import { Terminal } from './windows/terminal.js';
 import { Calculator } from './windows/calculator.js';
 import { ImageViewer } from './windows/image_viewer.js';
 import { Notepad } from './windows/notepad.js';
+import { Malvim } from './windows/malvim.js';
 
 export interface Permission {
   change_theme?: boolean;
@@ -124,6 +125,13 @@ export const registry: Registry = {
     display_name: "Notepad",
     category: ApplicationCategories.Editing,
     name: "notepad",
+  },
+  "malvim": {
+    class: Malvim,
+    args: [[375, 300]],
+    display_name: "Malvim",
+    category: ApplicationCategories.Editing,
+    name: "malvim",
   },
 };
 

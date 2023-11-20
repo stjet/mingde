@@ -1,5 +1,5 @@
 import { DesktopBackgroundValue, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager } from './guards.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager, isFocusableComponent } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
@@ -74,6 +74,11 @@ export interface FocusableComponent<MessageType> extends Component<MessageType> 
 }
 
 export type Member = Component<any> | WindowLike<any>;
+
+export interface MemberArg<MemberType extends Member> {
+  member: MemberType,
+  coords?: [number, number];
+}
 
 export interface Canvas<MessageType, MemberType extends Member> extends Elm<MessageType> {
   canvas: HTMLCanvasElement;
@@ -502,6 +507,52 @@ export class Window<MessageType> implements WindowLike<MessageType> {
   }
 }
 
+export class WindowWithFocus<MessageType> extends Window<MessageType> {
+  focus_index?: number;
+
+  //can be overwritten
+  get components(): Component<MessageType | WindowMessage>[] {
+    return this.layers.filter((layer) => !layer.hide).map((layer) => layer.members).flat();
+  }
+  //meant to be called by classes extending it
+  handle_message(message: MessageType | WindowMessage, data: any): boolean {
+    if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      if (data.key === "Enter" && !data.altKey) {
+        //send the keypress to focused components as they might do something with the keypress
+        return this.components.filter((c): c is FocusableComponent<MessageType | WindowMessage> => isFocusableComponent<MessageType | WindowMessage>(c)).filter((c) => c.focused).map((c) => c.handle_message(message, data)).some((r) => r);
+      }
+    } else if (message === WindowMessage.GenericShortcut) {
+      if (data === "cycle-focus-left" || data === "cycle-focus-right") {
+        const focusable_components: FocusableComponent<MessageType | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<MessageType | WindowMessage> => isFocusableComponent<MessageType | WindowMessage>(c));
+        if (typeof this.focus_index === "undefined") {
+          this.focus_index = 0;
+        } else {
+          focusable_components[this.focus_index].unfocus();
+          if (data === "cycle-focus-left") {
+            this.focus_index--;
+            if (this.focus_index < 0) {
+              this.focus_index = focusable_components.length - 1;
+            }
+          } else if (data === "cycle-focus-right") {
+            this.focus_index++;
+            if (this.focus_index >= focusable_components.length) {
+              this.focus_index = 0;
+            }
+          }
+        }
+        focusable_components[this.focus_index].focus();
+        this.do_rerender = true;
+      } else if (data === "cycle-focus-cancel" && typeof this.focus_index === "number") {
+        const focusable_components: FocusableComponent<MessageType | WindowMessage>[] = this.components.filter((c): c is FocusableComponent<MessageType | WindowMessage> => isFocusableComponent<MessageType | WindowMessage>(c));
+        focusable_components[this.focus_index].unfocus();
+        this.focus_index = undefined;
+        this.do_rerender = true;
+      }
+    }
+    return this.do_rerender;
+  }
+}
+
 export class Layer<MemberType extends Member> {
   layer_name: string;
   hide: boolean;
@@ -575,6 +626,11 @@ export class Layer<MemberType extends Member> {
       };
     }
     this._members.push(member);
+  }
+  add_members(...member_args: MemberArg<MemberType>[]) {
+    for (const member_arg of member_args) {
+      this.add_member(member_arg.member, member_arg.coords);
+    }
   }
   remove_member(id: string) {
     delete this._secrets[id];
@@ -679,6 +735,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.canvas.height = this.size[1];
     this.canvas.tabIndex = 1;
     document.body.appendChild(this.canvas);
+    this.canvas.focus();
     this.context = this.canvas.getContext("2d", {
       alpha: false,
     });
@@ -786,12 +843,12 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           screenY: mod.clientY,
           buttons: mod.buttons,
         });
-        window_rerendered = this.windows.filter(([member, _coords]) => member.id !== target_window?.id).some(([member, _coords]) => {
+        window_rerendered = this.windows.filter(([member, _coords]) => member.id !== target_window?.id).map(([member, _coords]) => {
           //may require a rerender, because of window size changes
           //MouseMoveOutside is not given to the normal/arbitrary message handler,
           //so we can reasonably say that it will only be used for window size changes
           return member.handle_message_window(WindowMessage.MouseMoveOutside, mod_screen_only);
-        });
+        }).some((r) => r);
       } else if (this.canvas.style.cursor !== CursorType.Default && message === WindowMessage.MouseUp) {
         window_rerendered = this.windows.filter(([member, _coords]) => member.id !== target_window?.id).map(([member, _coords]) => {
           //this is for mousedown outside, rerender may be needed 
@@ -842,9 +899,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       if (this.settings.shortcuts && data.altKey) {
         //check if it is start menu shortcut, if so, send to taskbar to open (or start menu to close)
         if (SHORTCUTS["start-menu"].includes(data.key)) {
-          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).map(([member, _coords]) => {
             return member.handle_message_window(TaskbarMessageStandard.StartMenuOpen, true);
-          });
+          }).some((r) => r);
           if (!window_rerendered) {
             //probably means start menu is already open, close it
             this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.StartMenu).forEach(([member, _coords]) => {
@@ -854,17 +911,17 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           }
         } else if (key_is_switch_focus_shortcut(data.key)) {
           //send to taskbars
-          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).map(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.SwitchFocus, get_switch_key_index(data.key));
-          });
+          }).some((r) => r);
         } else if (SHORTCUTS["cycle-left"].includes(data.key)) {
-          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).map(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.FocusCycleLeft, true);
-          });
+          }).some((r) => r);
         } else if (SHORTCUTS["cycle-right"].includes(data.key)) {
-          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).some(([member, _coords]) => {
+          window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).map(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.FocusCycleRight, true);
-          });
+          }).some((r) => r);
         } else if (this.focused_id) {
           //send to focused window
           window_rerendered = this.windows.reverse().find(([member, _coords]) => {

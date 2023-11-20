@@ -96,3 +96,47 @@ export function list_list_includes(list_list: any[][], list: any[]): boolean {
   }) ? true : false;
 }
 
+export function calculate_lines(text: string, font_size: number, font_name: string, line_width: number, context: CanvasRenderingContext2D): string[] {
+  let lines: string[] = [];
+  let line: string = "";
+  context.font = `${font_size}px ${font_name}`;
+  let words: string[] = text.split(" ");
+  for (let i = 0; i < words.length; i++) {
+    let measured_width: number = context.measureText(line + words[i]).width;
+    if (words[i] === "\n") {
+      lines.push(line);
+      line = "";
+    } else if (measured_width > line_width) {
+      let overflow_measured_width: number = context.measureText(words[i]).width;
+      if (overflow_measured_width > line_width) {
+        //if word gets too long, break it up and wrap over several lines
+        let word_line: string = line; //starting from the current line (don't start long word on new line)
+        for (let j = 0; j < words[i].length; j++) {
+          let word_measured_width: number = context.measureText(word_line + words[i][j]).width;
+          if (word_measured_width > line_width && word_line.length === 0) {
+            //if single character larger than line width, fit it on the line anyways (otherwise it will never display)
+            lines.push(words[i][j]);
+          } if (word_measured_width > line_width) {
+            lines.push(word_line);
+            word_line = words[i][j];
+          } else {
+            word_line += words[i][j];
+          }
+        }
+        if (word_line.length > 0) {
+          line = word_line + " ";
+        } else {
+          line = "";
+        }
+      } else {
+        lines.push(line);
+        line = words[i] + " ";
+      }
+    } else {
+      line += words[i] + " ";
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+

@@ -219,10 +219,10 @@ const command_info: Record<string, CommandInfo> = {
     min: 0,
   },
   notepad: {
-    usage: "notepad",
+    usage: "notepad [optional: path to file]",
     short: "Open the notepad window",
-    long: "Open the notepad window",
-    max: 0,
+    long: "Open the notepad window, with path prefilled in input box, if specified",
+    max: 1,
     min: 0,
   },
   image_viewer: {
@@ -230,6 +230,13 @@ const command_info: Record<string, CommandInfo> = {
     short: "Open the image viewer window",
     long: "Open the image viewer window, with the path prefilled in input box, if specified",
     max: 1,
+    min: 0,
+  },
+  malvim: {
+    usage: "malvim",
+    short: "Open the malvim window",
+    long: "Open the malvim window",
+    max: 0,
     min: 0,
   },
   //exit
@@ -669,7 +676,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
     } else if (command === "echo") {
       return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
-    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "notepad") {
+    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "malvim") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {
         name: command,
@@ -686,6 +693,17 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         open_layer_name: "windows",
         unique: false,
         args: [[300, 200], parts[0] ? `/${parts[0].slice(1)}` : undefined],
+        //sub_size_y: true,
+      });
+      return `Trying to open ${command}...`;
+    } else if (command === "notepad") {
+      //if this.secret not given to OpenWindow request, wm will ask user for permission
+      if (parts[0] && !parts[0].startsWith("/")) return "First argument, if specified, must be a path";
+      this.send_request(WindowRequest.OpenWindow, {
+        name: "notepad",
+        open_layer_name: "windows",
+        unique: false,
+        args: [[375, 300], parts[0] ? `/${parts[0].slice(1)}` : undefined],
         //sub_size_y: true,
       });
       return `Trying to open ${command}...`;
