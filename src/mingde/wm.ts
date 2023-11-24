@@ -706,6 +706,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         },
         "documents": {
           "test.txt": "Testing 1, 2, 3. Is this thing on?",
+          "longer_test.txt": "Longer multiline test \n Newlines are wonderful, aren't they? \n They can break up really really really long chunks of text into multiple lines. \n Sincerely, \n the sender",
         },
         "downloads": {
           //

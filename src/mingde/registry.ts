@@ -11,6 +11,7 @@ import { Calculator } from './windows/calculator.js';
 import { ImageViewer } from './windows/image_viewer.js';
 import { Notepad } from './windows/notepad.js';
 import { Malvim } from './windows/malvim.js';
+import { Exporter } from './windows/exporter.js';
 
 export interface Permission {
   change_theme?: boolean;
@@ -132,6 +133,13 @@ export const registry: Registry = {
     display_name: "Malvim",
     category: ApplicationCategories.Editing,
     name: "malvim",
+  },
+  "exporter": {
+    class: Exporter,
+    args: [[300, 200]],
+    display_name: "Exporter",
+    category: ApplicationCategories.Misc,
+    name: "exporter",
   },
 };
 

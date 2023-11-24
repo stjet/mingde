@@ -28,6 +28,7 @@ export interface ThemeInfo {
   background: string;
   alt_background: string; //used for terminal
   alt_text: string; //used for terminal
+  alt_text_light: string; //used for terminal
   border_left_top: string;
   border_right_bottom: string;
 }
@@ -42,6 +43,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#c0c0c0",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -54,6 +56,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#222222",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -66,6 +69,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#c0c0c0",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -78,6 +82,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#c0c0c0",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -90,6 +95,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#a0a0a0",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -102,6 +108,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#ffffd8",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "#b2b3b5",
     border_right_bottom: "black",
   },
@@ -114,8 +121,9 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "black",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
-    border_right_bottom: "white",
+    border_right_bottom: "black",
   },
   [Themes.Royal]: {
     top: "purple",
@@ -126,6 +134,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#c0c0c0",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },
@@ -138,6 +147,7 @@ export const THEME_INFOS: { [theme_type: string]: ThemeInfo } = {
     background: "#c0c0c0",
     alt_background: "black",
     alt_text: "white",
+    alt_text_light: "gray",
     border_left_top: "white",
     border_right_bottom: "black",
   },

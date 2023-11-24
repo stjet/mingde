@@ -6,7 +6,7 @@ import { ValidationState } from '../utils.js';
 
 //cursor here does not mean the mouse cursor
 
-const margin: number = 2 * SCALE;
+const margin_scaled: number = 2 * SCALE;
 
 export class TextInput<MessageType> implements FocusableComponent<MessageType> {
   readonly type: string = "text-input";
@@ -78,7 +78,7 @@ export class TextInput<MessageType> implements FocusableComponent<MessageType> {
         fill_text = this.placeholder;
       }
       context.fillStyle = theme_info.text_primary;
-      context.fillText(fill_text, this.coords[0] + margin, this.coords[1] + this.size[1] - margin);
+      context.fillText(fill_text, this.coords[0] + margin_scaled, this.coords[1] + this.size[1] - margin_scaled);
     } else {
       let write_text: string;
       let write_cursor_pos: number;
@@ -104,20 +104,21 @@ export class TextInput<MessageType> implements FocusableComponent<MessageType> {
         //since cursor is at the end
         write_cursor_pos = write_text.length - 1;
       }
+      //write the text
+      context.fillStyle = theme_info.text_primary;
+      context.fillText(write_text, this.coords[0] + margin_scaled, this.coords[1] + this.size[1] - margin_scaled);
       //draw cursor
       if (this.focused) {
         const rest_width: number = context.measureText(write_text.slice(0, write_cursor_pos)).width;
         //use the char cursor/selector is over to get cursor width. if no char (this.cursor_pos is this.value.length), use the letter a
         const cursor_width: number = context.measureText(this.value[this.cursor_pos] || "a").width;
         context.fillStyle = theme_info.highlight;
-        context.fillRect(this.coords[0] + rest_width + margin, this.coords[1], cursor_width, this.size[1]);
-      }
-      //write the text
-      context.fillStyle = theme_info.text_primary;
-      context.fillText(write_text, this.coords[0] + margin, this.coords[1] + this.size[1] - margin);
-      //todo: draw the cursor text a different colour so it is legible
-      if (this.value[this.cursor_pos]) {
-        //
+        context.fillRect(this.coords[0] + rest_width + margin_scaled, this.coords[1], cursor_width, this.size[1]);
+        //draw the cursor text a different colour so it is legible
+        if (this.value[this.cursor_pos]) {
+          context.fillStyle = theme_info.text_highlight;
+          context.fillText(this.value[this.cursor_pos], this.coords[0] + rest_width + margin_scaled, this.coords[1] + this.size[1] - margin_scaled);
+        }
       }
     }
   }

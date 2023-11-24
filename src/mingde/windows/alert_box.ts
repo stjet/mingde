@@ -19,11 +19,17 @@ export class AlertBox extends WindowWithFocus<AlertBoxMessage> {
   constructor(title: string, message: string) {
     super(alert_box_size, title, "alert-box", false);
     this.layers = [new Layer(this, "alert-body")];
-    this.layers[0].add_member(new Paragraph(this, message, [margin, WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE + 4], "text_primary", "NORMAL", alert_box_size[0] - margin * 2));
     const button_height: number = 22;
-    this.layers[0].add_member(new Button(this, "Ok", [alert_box_size[0] / 2 - button_width / 2, alert_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
-      this.send_request(WindowRequest.CloseWindow, {});
-    }));
+    this.layers[0].add_members(
+      {
+        member: new Paragraph(this, message, [margin, WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE + 4], "text_primary", "NORMAL", alert_box_size[0] - margin * 2),
+      },
+      {
+        member: new Button(this, "Ok", [alert_box_size[0] / 2 - button_width / 2, alert_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
+          this.send_request(WindowRequest.CloseWindow, {});
+        }),
+      }
+    );
   }
   render_view(theme: Themes) {
     let components = this.components;

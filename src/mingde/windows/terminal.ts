@@ -1,11 +1,12 @@
 import { WindowMessage } from '../wm.js';
 import { WindowRequest } from '../requests.js';
 import { VerticalScrollable, VerticalScrollableMessage } from '../vertical_scrollable.js';
-import { Paragraph, DEFAULT_LINE_HEIGHT_EXTRA } from '../components/paragraph.js';
 import { WINDOW_TOP_HEIGHT, FONT_SIZES, SCALE, SCROLLBAR_WIDTH } from '../constants.js';
 import { Themes, ThemeInfo, THEME_INFOS } from '../themes.js';
 import { isKeyboardEvent } from '../guards.js';
 import { FileSystemObject, Path } from '../fs.js';
+
+import { Paragraph, DEFAULT_LINE_HEIGHT_EXTRA } from '../components/paragraph.js';
 
 //text input will need to be implemented
 
@@ -21,14 +22,15 @@ interface CommandInfo {
   long: string,
   max: number, //max args, -1 for unlimited
   min?: number,
+  is_window?: boolean,
 }
 
 //list window ids, permissions? (that should be separate window maybe)
 const command_info: Record<string, CommandInfo> = {
   help: {
-    usage: "help [optional: command name]",
+    usage: "help [optional: command name or --nonwindow]",
     short: "List all commands",
-    long: "List all commands or find specific help information for a command",
+    long: "List all commands or, find specific help information for a command. If listing all commands, flag --nonwindow filters out all window opening commands",
     max: 1,
   },
   clear: {
@@ -168,6 +170,16 @@ const command_info: Record<string, CommandInfo> = {
     max: -1,
     min: 1,
   },
+  //run programs
+  /*
+  yu: {
+    usage: "yu [file path] [...unlimited arguments]",
+    short: "Run a .yu file",
+    long: "Run a .yu file, passing on all arguments. Basically bash or basic but worse",
+    max: -1,
+    min: 1,
+  },
+  */
   //opening window and stuff
   terminal: {
     usage: "terminal",
@@ -175,6 +187,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the terminal window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   calculator: {
     usage: "calculator",
@@ -182,6 +195,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the calculator window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   settings: { //we probably want separate commands to change theme, wallpaper, settings
     usage: "settings",
@@ -189,6 +203,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the settings window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   shortcuts: {
     usage: "shortcuts",
@@ -196,6 +211,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the shortcuts window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   minesweeper: {
     usage: "minesweeper",
@@ -203,6 +219,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the minesweeper window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   reversi: {
     usage: "reversi",
@@ -210,6 +227,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the reversi window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   bag: {
     usage: "bag",
@@ -217,6 +235,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the bag window",
     max: 0,
     min: 0,
+    is_window: true,
   },
   notepad: {
     usage: "notepad [optional: path to file]",
@@ -224,6 +243,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the notepad window, with path prefilled in input box, if specified",
     max: 1,
     min: 0,
+    is_window: true,
   },
   image_viewer: {
     usage: "image_viewer [optional: path to file]",
@@ -231,6 +251,7 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the image viewer window, with the path prefilled in input box, if specified",
     max: 1,
     min: 0,
+    is_window: true,
   },
   malvim: {
     usage: "malvim",
@@ -238,6 +259,15 @@ const command_info: Record<string, CommandInfo> = {
     long: "Open the malvim window",
     max: 0,
     min: 0,
+    is_window: true,
+  },
+  exporter: {
+    usage: "exporter",
+    short: "Open the exporter window",
+    long: "Open the exporter window",
+    max: 0,
+    min: 0,
+    is_window: true,
   },
   //exit
   exit: {
@@ -319,6 +349,8 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
     if (command === "help") {
       if (parts.length === 0) {
         return "All Commands: "+Object.keys(command_info).map((key) => ` \n - ${key}: ${command_info[key].short}`)+" \n \n Do `help <command name>` to learn more about a specific command.";
+      } else if (parts[0] === "--nonwindow") {
+        return "All Non-Window Commands: "+Object.keys(command_info).filter((key) => !command_info[key].is_window).map((key) => ` \n - ${key}: ${command_info[key].short}`)+" \n \n Do `help <command name>` to learn more about a specific command.";
       } else {
         let specific_info: CommandInfo | undefined = command_info[parts[0]];
         if (!specific_info) {
@@ -676,7 +708,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
     } else if (command === "echo") {
       return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
-    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "malvim") {
+    } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "malvim" || command === "exporter") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {
         name: command,

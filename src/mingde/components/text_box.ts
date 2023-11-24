@@ -69,12 +69,16 @@ export class TextBox<MessageType> implements FocusableComponent<MessageType> {
     if (this.focused) {
       const value_lines: string[] = this.value.split(" \n ");
       const rest_width: number = context.measureText(value_lines[this.line_pos].slice(0, this.cursor_pos)).width;
-      const rest_height: number = this.line_pos * line_height;
+      const rest_height: number = this.line_pos * line_height; //line_height is already multiplied by SCALE
       //use the char cursor/selector is over to get cursor width. if no char (this.cursor_pos is this.value.length), use the letter a
-      const cursor_width: number = context.measureText(this.value[this.cursor_pos] || "a").width;
+      const cursor_width: number = context.measureText(value_lines[this.line_pos][this.cursor_pos] || "a").width;
       context.fillStyle = theme_info.highlight;
       context.fillRect(this.coords[0] + rest_width + margin * SCALE, this.coords[1] + rest_height + margin * SCALE, cursor_width, line_height);
-      //
+      //draw the cursor text a different colour so it is legible
+      if (this.value[this.cursor_pos]) {
+        context.fillStyle = theme_info.text_highlight;
+        context.fillText(this.value[this.cursor_pos], this.coords[0] + rest_width + margin * SCALE, this.coords[1] + rest_height + line_height + margin * SCALE);
+      }
     }
     //
   }
