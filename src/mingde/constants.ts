@@ -10,7 +10,7 @@ export const SCROLLBAR_WIDTH: number = 15 * SCALE;
 export const SCROLLBAR_BUTTON_HEIGHT: number = 15 * SCALE;
 export const SCROLL_DISTANCE: number = 5 * SCALE;
 export const FONT_NAME: string = "Times New Roman";
-export const FONT_NAME_MONO: string = "Courier New";
+export const FONT_NAME_MONO: string = "Hack, Consolas, monaco, monospace";
 export const WINDOW_MIN_DIMENSIONS: [number, number] = [100 * SCALE, 100 * SCALE];
 export const WINDOW_DEFAULT_DIMENSIONS: [number, number] = [300 * SCALE, 200 * SCALE]; //mostly applies when toggling fullscreen
 export const FONT_SIZES: Record<string, number> = {
@@ -32,6 +32,9 @@ export const CONFIG = {
   },
   LOGS: {
     RERENDERS: true,
+  },
+  YU: {
+    VAR_SET_QUIET: true,
   },
   HIGHLIGHT_BUTTONS: true, //enable highlight button's highlights (can cause a lot of rerenders)
   SHADOWS: true,

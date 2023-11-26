@@ -706,7 +706,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         },
         "documents": {
           "test.txt": "Testing 1, 2, 3. Is this thing on?",
-          "longer_test.txt": "Longer multiline test \n Newlines are wonderful, aren't they? \n They can break up really really really long chunks of text into multiple lines. \n Sincerely, \n the sender",
+          "longer_test.txt": "Longer multiline test \n Newlines are wonderful, aren't they? \n They can break up really really really long chunks of text into multiple lines. \n Sincerely, \n the sender \n PS: \n lorem ipsum \m dolorum \n etc etc \n filler text",
         },
         "downloads": {
           //
@@ -721,6 +721,11 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
             "outskirty.image": "/backgrounds/outskirty.png",
             "piecey.image": "/backgrounds/piecey.png",
           },
+        },
+        "scripts": {
+          "factorial.yu": "var_set $1$ echo 1 \n var_set $n$ echo $_args_$ \n var_set $total$ echo $n$ \n GOTO end IF $n$ IS $1$ \n LABEL loop \n var_set $n_minus_one$ calc sub $n$ 1 \n var_set $total$ calc mul $total$ $n_minus_one$ \n var_set $n$ echo $n_minus_one$ \n GOTO loop IF $n_minus_one$ NOT $1$ \n LABEL end \n echo $_args_$! = $total$",
+          //wip
+          "cowsay.yu": ";set all the initial line values \n var_set $line_1$ echo  ________________________________________ \n var_set $line_2$ echo / \n var_set $extra_lines$ echo  \n var_set $line_3$ echo \\ \n var_set $line_4$ echo  ---------------------------------------- \n var_set $line_5$ echo         \\   ^__^ \n var_set $line_6$ echo          \\  (oo)\\_______ \n var_set $line_7$ echo             (__)\\       )\\/\\ \n var_set $line_8$ echo                 ||----w | \n var_set $line_9$ echo                 ||     || \n ;calculate amount of lines needed \n var_set $40$ echo 40 \n var_set $2$ echo 2 \n var_set $0$ echo 0 \n var_set $length$ var_length $_args_$ \n var_set $total_lines$ calc div $length$ $40$ \n ;if two lines or less, continue, else skip forward \n GOTO more_than_2 IF $total_lines$ GT $2$ \n ;handle two lines or less \n ;handle two or more lines \n var_set $line_2_words$ var_slice $_args_$ 0 40 \n ;need to also add the additional spaces and \\ \n var_set $l2w_length$ var_length $line_2_words$ \n var_set $l2_remaining_length$ calc sub 40 $l2w_length$ \n GOTO l2_loop_skip IF $l2_remaining_length$ IS $0$ \n LABEL line_2_loop \n var_append $line_2_words$ echo  \n var_set $l2_remaining_length$ calc sub $l2_remaining_length$ 1 \n var_append $line_2_words$ echo   \n GOTO line_2_loop IF $l2_remaining_length$ GT $0$ \n LABEL l2_loop_skip \n var_append $line_2_words$ echo \\ \n var_append $line_2$ echo $line_2_words$ \n var_set $line_3_words$ var_slice $_args_$ 40 80 \n ;see previous comment \n var_set $l3w_length$ var_length $line_3_words$ \n var_set $l3_remaining_length$ calc sub 40 $l3w_length$ \n GOTO l3_loop_skip IF $l3_remaining_length$ IS $0$ \n LABEL line_3_loop \n var_append $line_3_words$ echo  \n var_set $l3_remaining_length$ calc sub $l3_remaining_length$ 1 \n var_append $line_3_words$ echo   \n GOTO line_3_loop IF $l3_remaining_length$ GT $0$ \n LABEL l3_loop_skip \n var_append $line_3_words$ echo / \n var_append $line_3$ echo $line_3_words$ \n GOTO print \n LABEL more_than_2 \n ;placeholder \n ;now print out the cow \n LABEL print \n echo $line_1$ \\n $line_2$ \\n $extra_lines$$line_3$ \\n $line_4$ \\n $line_5$ \\n $line_6$ \\n $line_7$ \\n $line_8$ \\n $line_9$",
         },
       },
       "prg": {

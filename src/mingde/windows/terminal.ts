@@ -1,7 +1,7 @@
 import { WindowMessage } from '../wm.js';
 import { WindowRequest } from '../requests.js';
 import { VerticalScrollable, VerticalScrollableMessage } from '../vertical_scrollable.js';
-import { WINDOW_TOP_HEIGHT, FONT_SIZES, SCALE, SCROLLBAR_WIDTH } from '../constants.js';
+import { CONFIG, WINDOW_TOP_HEIGHT, FONT_SIZES, SCALE, SCROLLBAR_WIDTH } from '../constants.js';
 import { Themes, ThemeInfo, THEME_INFOS } from '../themes.js';
 import { isKeyboardEvent } from '../guards.js';
 import { FileSystemObject, Path } from '../fs.js';
@@ -9,6 +9,9 @@ import { FileSystemObject, Path } from '../fs.js';
 import { Paragraph, DEFAULT_LINE_HEIGHT_EXTRA } from '../components/paragraph.js';
 
 //text input will need to be implemented
+
+const MAX_ITERATIONS: number = 50000;
+const MAX_RECURSION_DEPTH: number = 7; //yu programs calling other yu programs
 
 const margin: number = 5;
 
@@ -102,12 +105,34 @@ const command_info: Record<string, CommandInfo> = {
     max: -1,
     min: 2,
   },
+  var_append: {
+    usage: "var_append [variable name] [...command arguments]",
+    short: "Append to an existing variable",
+    long: "Append to a existing variable the output of a command. Variable names must start and end with $, but cannot contain $ elsewhere",
+    max: -1,
+    min: 2,
+  },
   var_clear: {
     usage: "var_clear [variable name]",
     short: "Clear variable by name",
     long: "Clear variable by name. Variable names must start and end with $, but cannot contain $ elsewhere",
     max: 1,
     min: 1,
+  },
+  //var utils
+  var_length: {
+    usage: "var_length [variable name]",
+    short: "Get char length of variable",
+    long: "Get char length of variable",
+    max: 1,
+    min: 1,
+  },
+  var_slice: {
+    usage: "var_slice [variable name] [start index] [end index]",
+    short: "Get slice of the variable characters",
+    long: "Get slice of the variable characters from the start index to the end index. Negatives allowed, variables allowed",
+    max: 3,
+    min: 3,
   },
   //file io
   append: {
@@ -171,15 +196,13 @@ const command_info: Record<string, CommandInfo> = {
     min: 1,
   },
   //run programs
-  /*
   yu: {
-    usage: "yu [file path] [...unlimited arguments]",
+    usage: "yu [file path] [pure/impure] [...unlimited arguments]",
     short: "Run a .yu file",
-    long: "Run a .yu file, passing on all arguments. Basically bash or basic but worse",
+    long: `Run a .yu file, passing on all arguments (after the first two). If pure, will not change variable state.${ CONFIG.YU.VAR_SET_QUIET ? " The output of var_set and var_append commands will not be logged. " : "" }Basically bash or basic but worse`,
     max: -1,
-    min: 1,
+    min: 2,
   },
-  */
   //opening window and stuff
   terminal: {
     usage: "terminal",
@@ -305,7 +328,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
     return true;
   }
   static add_vars_to_text(text: string, vars: Record<string, string>): string {
-    //vars start and end with $
+    //this.vars start and end with $
     let new_text: string = "";
     //character based state machine, what could go wrong.
     let in_var: boolean = false;
@@ -330,8 +353,9 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
     //so escaping $ is possible
     return new_text.replaceAll("\\$", "$");
   }
+  //when running yu script, make sure they do not have side effects to variables (reset variables after running?)
   //return undefined if the command shouldn't show (like clear)
-  handle_input(input: string): string | undefined {
+  handle_input(input: string, recursion_depth: number = 0): string | undefined {
     let parts: string[] = input.split(" ");
     let command: string = parts.shift();
     if (typeof command === "undefined") return;
@@ -547,6 +571,16 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
       this.vars[var_name] = this.handle_input(input);
       return this.vars[var_name];
+    } else if (command === "var_append") {
+      const var_name: string = parts.shift();
+      if (!Terminal.is_valid_var_name(var_name)) return "Variable name must start and end with $, and cannot have $ elsewhere.";
+      if (typeof this.vars[var_name] === "undefined") return `Could not append to variable ${var_name} because it does not exist`;
+      const input: string = parts.join(" ");
+      if (parts[0] === "clear") {
+        return "The \"clear\" command cannot be used in the \"var_append\" command as it does not return anything.";
+      }
+      this.vars[var_name] += this.handle_input(input);
+      return this.vars[var_name];
     } else if (command === "var_clear") {
       //check if var exists
       const var_name: string = parts[0];
@@ -555,7 +589,29 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         delete this.vars[var_name];
         return "Cleared variable.";
       } else {
-        return "Could not clear variable because it does not exist.";
+        return `Could not clear variable ${var_name} because it does not exist.`;
+      }
+    } else if (command === "var_length") {
+      //check if var exists
+      const var_name: string = parts[0];
+      if (!Terminal.is_valid_var_name(var_name)) return "Variable name must start and end with $, and cannot have $ elsewhere.";
+      if (typeof this.vars[var_name] === "string") {
+        return String(this.vars[var_name].length);
+      } else {
+        return "Could not get variable length because it does not exist.";
+      }
+    } else if (command === "var_slice") {
+      //check if var exists
+      const var_name: string = parts[0];
+      if (!Terminal.is_valid_var_name(var_name)) return "Variable name must start and end with $, and cannot have $ elsewhere.";
+      if (typeof this.vars[var_name] === "undefined") {
+        return "Could not slice variable chars because it does not exist.";
+      } else {
+        const start_index: number | undefined = isNaN(Number(parts[1])) ? Number(this.vars[parts[1]]) : Number(parts[1]);
+        if (typeof start_index === "undefined") return "Start index is invalid number";
+        const end_index: number | undefined = isNaN(Number(parts[2])) ? Number(this.vars[parts[2]]) : Number(parts[2]);
+        if (typeof end_index === "undefined") return "End index is invalid number";
+        return this.vars[var_name].slice(start_index, end_index);
       }
     } else if (command === "append") {
       const write_path: Path = FileSystemObject.navigate_path(this.path, parts.shift()); 
@@ -707,7 +763,139 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         return "Path must lead to file, not directory";
       }
     } else if (command === "echo") {
-      return Terminal.add_vars_to_text(parts.join(" ").replace("\\n", "\n"), this.vars);
+      return Terminal.add_vars_to_text(parts.join(" ").replaceAll("\\n", "\n"), this.vars);
+    } else if (command === "yu") {
+      if (recursion_depth > MAX_RECURSION_DEPTH) return `Error: exceeded max recursion depth (${MAX_RECURSION_DEPTH})`;
+      //open file
+      const yu_path: Path = FileSystemObject.navigate_path(this.path, parts.shift());
+      if (!yu_path.endsWith(".yu") && !yu_path.endsWith(".fish")) {
+        return "File should end in .yu or .fish";
+      }
+      const vars_snapshot: Record<string, string> = JSON.parse(JSON.stringify(this.vars));
+      if (parts[0] !== "pure" && parts[0] !== "impure") {
+        return "Pure or impure must be specified";
+      }
+      let pure: boolean = parts.shift() === "pure" ? true : false;
+      this.vars["$_args_$"] = parts.join(" ");
+      const response = this.send_request(WindowRequest.ReadFileSystem, {
+        permission_type: "read_all_file_system",
+        path: yu_path,
+      });
+      if (typeof response === "undefined") {
+        return "Does not exist or or command needs to be rerun after read_all_file_system permission granted.";
+      } else if (typeof response === "object") {
+        return "Path must lead to file, not directory.";
+      }
+      const GOTO_COMPARISONS: string[] = ["IS", "NOT", "GT", "LT", "GTE", "LTE"];
+      const exec_lines: string[] = response.split(" \n ");
+      let labels: Record<string, number> = {};
+      //preprocess all LABELs and match with line #s
+      //and certain errors
+      for (let i = 0; i < exec_lines.length; i++) {
+        let exec_parts: string[] = exec_lines[i].split(" ");
+        if (exec_parts.length === 0) {
+          continue;
+        }
+        const exec_command: string = exec_parts.shift(); //command removed from parts
+        if (exec_command === "LABEL") {
+          if (exec_parts.length !== 1 || exec_parts[0].includes("$")) {
+            return `Error at line ${i + 1}: LABEL name cannot have spaces or the $ char`;
+          }
+          labels[exec_parts[0]] = i;
+        } else if (exec_command === "GOTO") {
+          if (exec_parts.length !== 1 && exec_parts.length !== 5) {
+            return `Error at line ${i + 1}: GOTO can only have 1 or 5 arguments`;
+          } else if (exec_parts.length === 5 && exec_parts[1] !== "IF") {
+            return `Error at line ${i + 1}: GOTO with 5 arguments must have IF as second argument`;
+          } else if (exec_parts.length === 5 && !GOTO_COMPARISONS.includes(exec_parts[3])) {
+            return `Error at line ${i + 1}: GOTO with 5 arguments must have ${GOTO_COMPARISONS.join("/")}  as fourth argument`;
+          }
+        } else if (exec_command === "yu" && exec_parts[0] === "impure" && pure) {
+          return `Error at line ${i + 1}: yu command in script cannot be marked as impure if callee script is pure`;
+        }
+      }
+      let logged: string = "";
+      let iterations: number = 0;
+      let exec_index: number = 0; //index of what command to execute
+      while (true) {
+        //program ended
+        if (exec_index === exec_lines.length) {
+          break;
+        }
+        if (iterations > MAX_ITERATIONS) {
+          return `${logged} \n Error: Exceeded max iteration of ${MAX_ITERATIONS}`;
+        }
+        const current_exec: string = exec_lines[exec_index];
+        let exec_parts: string[] = current_exec.split(" ");
+        if (exec_parts.length === 0) {
+          exec_index++;
+          continue;
+        }
+        const exec_command: string = exec_parts.shift();
+        //no need to handle LABEL since they are skipped over (which is why GOTO when `exec_index = ` does not have `continue`)
+        if (exec_command === "GOTO") {
+          //GOTO label_name
+          //GOTO label_name IF $var$ IS/NOT $var$
+          //label_name can be var (or have multiple this.vars)
+          const label_name: string = Terminal.add_vars_to_text(exec_parts[0], this.vars);
+          if (typeof labels[label_name] === "undefined") {
+            return `${logged} \n Error at line ${exec_index + 1}: LABEL "${label_name}" not found`;
+          }
+          if (exec_parts.length === 1) {
+            //just jump to the label
+            exec_index = labels[label_name];
+          } else {
+            //if condition is correct, jump to the label
+            const var1: string | undefined = this.vars[exec_parts[2]];
+            if (typeof var1 === "undefined") {
+              return `${logged} \n Error at line ${exec_index + 1}: Left hand side comparison variable "${exec_parts[2]}" does not exist`;
+            }
+            const var2: string | undefined = this.vars[exec_parts[4]];
+            if (typeof var2 === "undefined") {
+              return `${logged} \n Error at line ${exec_index + 1}: Right hand side comparison variable "${exec_parts[4]}" does not exist`;
+            }
+            let condition: boolean = false;
+            if (exec_parts[3] === "IS" && var1 === var2) {
+              condition = true;
+            } else if (exec_parts[3] === "NOT" && var1 !== var2) {
+              condition = true;
+            } else {
+              //make sure they are numbers
+              if (isNaN(Number(var1))) {
+                return `${logged} \n Error at line ${exec_index + 1}: Cannot do a ${exec_parts[3]} comparison with non-number variables (left hand side)`;
+              } else if (isNaN(Number(var2))) {
+                return `${logged} \n Error at line ${exec_index + 1}: Cannot do a ${exec_parts[3]} comparison with non-number variables (right hand side)`;
+              }
+              if (exec_parts[3] === "GT" && Number(var1) > Number(var2)) {
+                condition = true;
+              } else if (exec_parts[3] === "LT" && Number(var1) < Number(var2)) {
+                condition = true;
+              } else if (exec_parts[3] === "GTE" && Number(var1) >= Number(var2)) {
+                condition = true;
+              } else if (exec_parts[3] === "LTE" && Number(var1) <= Number(var2)) {
+                condition = true;
+              }
+            }
+            if (condition) {
+              //jump to label
+              exec_index = labels[label_name];
+            }
+          }
+        } else if (!exec_command.startsWith(";") && exec_command !== "LABEL" && exec_command !== "") {
+          //^ any line that starts with ; is a comment
+          const input_response: string = this.handle_input(current_exec, recursion_depth + 1) + " \n " || " \n ";
+          if ((exec_command !== "var_set" && exec_command !== "var_append") || !CONFIG.YU.VAR_SET_QUIET) {
+            logged += input_response;
+          }
+        }
+        exec_index++;
+        iterations++;
+      }
+      if (pure) {
+        this.vars = vars_snapshot;
+      }
+      //remove final trailing new line
+      return logged.slice(0, -1);
     } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "malvim" || command === "exporter") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {
