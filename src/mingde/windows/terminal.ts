@@ -2,13 +2,13 @@ import { WindowMessage } from '../wm.js';
 import { WindowRequest } from '../requests.js';
 import { VerticalScrollable, VerticalScrollableMessage } from '../vertical_scrollable.js';
 import { CONFIG, WINDOW_TOP_HEIGHT, FONT_SIZES, SCALE, SCROLLBAR_WIDTH } from '../constants.js';
-import { Themes, ThemeInfo, THEME_INFOS } from '../themes.js';
-import { isKeyboardEvent } from '../guards.js';
+import { Themes, ThemeInfo, THEME_INFOS, THEMES_LIST } from '../themes.js';
+import { isKeyboardEvent, isHexColor } from '../guards.js';
 import { FileSystemObject, Path } from '../fs.js';
 
 import { Paragraph, DEFAULT_LINE_HEIGHT_EXTRA } from '../components/paragraph.js';
 
-//text input will need to be implemented
+//can be problem if terminal output is very large
 
 const MAX_ITERATIONS: number = 50000;
 const MAX_RECURSION_DEPTH: number = 7; //yu programs calling other yu programs
@@ -33,7 +33,7 @@ const command_info: Record<string, CommandInfo> = {
   help: {
     usage: "help [optional: command name or --nonwindow]",
     short: "List all commands",
-    long: "List all commands or, find specific help information for a command. If listing all commands, flag --nonwindow filters out all window opening commands",
+    long: "List all commands or, find specific help information for a command. If listing all commands, flag '--nonwindow' filters out all window opening commands",
     max: 1,
   },
   clear: {
@@ -49,45 +49,45 @@ const command_info: Record<string, CommandInfo> = {
     max: 0,
   },
   cd: {
-    usage: "cd [directory path]",
+    usage: "cd [directory path] [optional: --var]",
     short: "Change directory",
-    long: "Change directory. `.` and `..` are allowed",
-    max: 1,
+    long: "Change directory. `.` and `..` are allowed, vars allowed if '--var' flagged passed",
+    max: 2,
     min: 1,
   },
   ls: {
-    usage: "ls [optional: directory path]",
+    usage: "ls [optional: directory path] [optional: --var]",
     short: "View top-level contents of a directory",
-    long: "View top-level contents of a directory",
-    max: 1,
+    long: "View top-level contents of a directory, vars allowed if '--var' flag passed (must be second arg)",
+    max: 2,
     min: 0,
   },
   cat: {
-    usage: "cat [file path]",
+    usage: "cat [file path] [optional: --var]",
     short: "View the contents of a file",
-    long: "View the contents of a file",
-    max: 1,
+    long: "View the contents of a file, vars allowed if '--var' flag passed",
+    max: 2,
     min: 1,
   },
   mkdir: {
-    usage: "mkdir [directory path]",
+    usage: "mkdir [directory path] [optional: --var]",
     short: "Creates an empty directory at the path",
-    long: "Creates an empty directory at the path",
-    max: 1,
+    long: "Creates an empty directory at the path, vars allowed if '--var' flag passed",
+    max: 2,
     min: 1,
   },
   touch: {
-    usage: "touch [file path]",
+    usage: "touch [file path] [optional: --var]",
     short: "Creates an empty file at the path",
     long: "Creates an empty file at the path",
-    max: 1,
+    max: 2,
     min: 1,
   },
   rm: {
-    usage: "rm [path] [optional: --nonempty]",
+    usage: "rm [path] [optional: --nonempty and/or --var]",
     short: "Remove file/directory at location",
-    long: "Remove file/directory at location. Flag '--nonempty' to delete non-empty directories",
-    max: 2,
+    long: "Remove file/directory at location. Flag '--nonempty' to delete non-empty directories. Flag '--var' to allow vars",
+    max: 3,
     min: 1,
   },
   //variables
@@ -128,11 +128,11 @@ const command_info: Record<string, CommandInfo> = {
     min: 1,
   },
   var_slice: {
-    usage: "var_slice [variable name] [start index] [end index]",
+    usage: "var_slice [variable name] [start index] [optional: end index]",
     short: "Get slice of the variable characters",
-    long: "Get slice of the variable characters from the start index to the end index. Negatives allowed, variables allowed",
+    long: "Get slice of the variable characters from the start index to the end index. If end index is ommitted, end index is assumed to be the var length. Negatives allowed, variables allowed",
     max: 3,
-    min: 3,
+    min: 2,
   },
   //file io
   append: {
@@ -151,9 +151,9 @@ const command_info: Record<string, CommandInfo> = {
   },
   //utils
   count: {
-    usage: "count [path] [optional: --dir] [optional: --char]",
+    usage: "count [path] [optional: --dir or --char]",
     short: "Count lines in file or directory",
-    long: "Count lines in file, or all top-level files in a directory with the --dir flag. Or, count characters with the --char flag",
+    long: "Count lines in file, or all top-level files in a directory with the '--dir' flag. Or, count characters with the '--char' flag",
     max: 3,
     min: 1,
   },
@@ -171,19 +171,19 @@ const command_info: Record<string, CommandInfo> = {
     max: -1,
     min: 3,
   },
-  //tail, head, range, grep
+  //tail, head, range
   tail: {
-    usage: "tail [file path] [n lines]",
+    usage: "tail [file path] [n lines] [optional: --var]",
     short: "Returns last n lines of file",
-    long: "Returns last n lines of file",
-    max: 2,
+    long: "Returns last n lines of file, vars allowed if '--var' flag passed",
+    max: 3,
     min: 2,
   },
   head: {
-    usage: "head [file path] [n lines]",
+    usage: "head [file path] [n lines] [optional --var]",
     short: "Returns first n lines of file",
-    long: "Returns first n lines of file",
-    max: 2,
+    long: "Returns first n lines of file, vars allowed if '--var' flag passed",
+    max: 3,
     min: 2,
   },
   //
@@ -203,6 +203,30 @@ const command_info: Record<string, CommandInfo> = {
     max: -1,
     min: 2,
   },
+  //copy
+  copy: {
+    usage: "copy [...command arguments]",
+    short: "Copy command output to clipboard",
+    long: "Copy command output to clipboard",
+    max: -1,
+    min: 1,
+  },
+  //system settings
+  background: {
+    usage: "background [file path or hex colour] [optional: --var]",
+    short: "Change background to file path or hex colour",
+    long: "Change background to file path or hex colour (must be .image file). Pass --var flag to allow var in file path",
+    max: 2,
+    min: 1,
+  },
+  theme: {
+    usage: "theme [name] [optional: --var]",
+    short: "Change theme to theme name",
+    long: `Change theme to theme name. Pass --var flag to allow var in theme name. Theme name must be one of the following: ${THEMES_LIST.join(", ")}`,
+    max: 2,
+    min: 1,
+  },
+  //
   //opening window and stuff
   terminal: {
     usage: "terminal",
@@ -372,9 +396,9 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
     }
     if (command === "help") {
       if (parts.length === 0) {
-        return "All Commands: "+Object.keys(command_info).map((key) => ` \n - ${key}: ${command_info[key].short}`)+" \n \n Do `help <command name>` to learn more about a specific command.";
+        return "All Commands: "+Object.keys(command_info).map((key) => ` \n - ${key}: ${command_info[key].short}`).join("")+" \n \n Do `help <command name>` to learn more about a specific command.";
       } else if (parts[0] === "--nonwindow") {
-        return "All Non-Window Commands: "+Object.keys(command_info).filter((key) => !command_info[key].is_window).map((key) => ` \n - ${key}: ${command_info[key].short}`)+" \n \n Do `help <command name>` to learn more about a specific command.";
+        return "All Non-Window Commands: "+Object.keys(command_info).filter((key) => !command_info[key].is_window).map((key) => ` \n - ${key}: ${command_info[key].short}`).join("")+" \n \n Do `help <command name>` to learn more about a specific command.";
       } else {
         let specific_info: CommandInfo | undefined = command_info[parts[0]];
         if (!specific_info) {
@@ -407,7 +431,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
     } else if (command === "pwd") {
       return this.path;
     } else if (command === "cd") {
-      const new_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[1] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[1] === "string")  {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      const new_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       const response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
         path: new_path,
@@ -426,7 +456,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         ls_path = this.path;
       } else {
         //ls the given directory
-        ls_path = FileSystemObject.navigate_path(this.path, parts[0]);
+        let path_fragment: string = parts[0];
+        if (parts[1] === "--var") {
+          path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+        } else if (typeof parts[1] === "string")  {
+          return "Second argument, if present, must be flag '--var'";
+        }
+        ls_path = FileSystemObject.navigate_path(this.path, path_fragment);
       }
       const response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
@@ -450,7 +486,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
       return dir_contents.join(", ");;
     } else if (command === "cat") {
-      const cat_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[1] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[1] === "string")  {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      const cat_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       const response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
         path: cat_path,
@@ -463,7 +505,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
       return response;
     } else if (command === "mkdir") {
-      const mkdir_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[1] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[1] === "string")  {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      const mkdir_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       //path of the parent of mkdir_path
       const parent_path: Path = `/${mkdir_path.split("/").slice(0, -1).join("/").slice(1)}`;
       const parent_response = this.send_request(WindowRequest.ReadFileSystem, {
@@ -496,7 +544,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
       return "";
     } else if (command === "touch") {
-      const touch_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[1] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[1] === "string")  {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      const touch_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       //path of the parent of mkdir_path
       const parent_path: Path = `/${touch_path.split("/").slice(0, -1).join("/").slice(1)}`;
       const parent_response = this.send_request(WindowRequest.ReadFileSystem, {
@@ -529,7 +583,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
       return "";
     } else if (command === "rm") {
-      const rm_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[1] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[1] === "string" && parts[1] !== "--nonempty")  {
+        return "Second argument, if present, must be flag '--var' or '--nonempty'";
+      }
+      const rm_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       const exists_response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
         path: rm_path,
@@ -605,11 +665,11 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       const var_name: string = parts[0];
       if (!Terminal.is_valid_var_name(var_name)) return "Variable name must start and end with $, and cannot have $ elsewhere.";
       if (typeof this.vars[var_name] === "undefined") {
-        return "Could not slice variable chars because it does not exist.";
+        return `Could not slice variable ${var_name} because it does not exist.`;
       } else {
         const start_index: number | undefined = isNaN(Number(parts[1])) ? Number(this.vars[parts[1]]) : Number(parts[1]);
         if (typeof start_index === "undefined") return "Start index is invalid number";
-        const end_index: number | undefined = isNaN(Number(parts[2])) ? Number(this.vars[parts[2]]) : Number(parts[2]);
+        let end_index: number | undefined = typeof parts[2] === "string" ? (isNaN(Number(parts[2])) ? Number(this.vars[parts[2]]) : Number(parts[2])) : this.vars[var_name].length;
         if (typeof end_index === "undefined") return "End index is invalid number";
         return this.vars[var_name].slice(start_index, end_index);
       }
@@ -733,7 +793,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
       }
       return String(result);
     } else if (command === "tail") {
-      const tail_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[2] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[2] === "string")  {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      const tail_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       const response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
         path: tail_path,
@@ -748,7 +814,13 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         return "Path must lead to file, not directory";
       }
     } else if (command === "head") {
-      const head_path: Path = FileSystemObject.navigate_path(this.path, parts[0]);
+      let path_fragment: string = parts[0];
+      if (parts[2] === "--var") {
+        path_fragment = Terminal.add_vars_to_text(parts[0], this.vars);
+      } else if (typeof parts[2] === "string")  {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      const head_path: Path = FileSystemObject.navigate_path(this.path, path_fragment);
       const response = this.send_request(WindowRequest.ReadFileSystem, {
         permission_type: "read_all_file_system",
         path: head_path,
@@ -859,7 +931,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
               condition = true;
             } else if (exec_parts[3] === "NOT" && var1 !== var2) {
               condition = true;
-            } else {
+            } else if (exec_parts[3] !== "IS" && exec_parts[3] !== "NOT") {
               //make sure they are numbers
               if (isNaN(Number(var1))) {
                 return `${logged} \n Error at line ${exec_index + 1}: Cannot do a ${exec_parts[3]} comparison with non-number variables (left hand side)`;
@@ -895,7 +967,66 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         this.vars = vars_snapshot;
       }
       //remove final trailing new line
-      return logged.slice(0, -1);
+      console.log(logged.length)
+      return logged.trim();
+    } else if (command === "copy") {
+      const input: string = parts.join(" ");
+      if (parts[0] === "clear") {
+        return "The \"clear\" command cannot be used in the \"copy\" command as it does not return anything.";
+      }
+      const output = this.handle_input(input);
+      if (navigator && navigator?.clipboard) {
+        navigator.clipboard.writeText(output);
+      }
+      return `Tried to copy: \n ${output}`;
+    } else if (command === "background") {
+      let new_bg: string = parts[0];
+      if (parts[1] === "--var") {
+        //add vars
+        new_bg = Terminal.add_vars_to_text(new_bg, this.vars);
+      } else if (parts[1] !== "--var" && typeof parts[1] === "string") {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      if (isHexColor(new_bg)) {
+        this.send_request(WindowRequest.ChangeDesktopBackground, {
+          new_info: new_bg,
+        });
+      } else {
+        //make sure file exists
+        const bg_path: Path = FileSystemObject.navigate_path(this.path, new_bg);
+        const response = this.send_request(WindowRequest.ReadFileSystem, {
+          permission_type: "read_all_file_system",
+          path: bg_path,
+        });
+        if (typeof response === "undefined") {
+          return `Path "${bg_path}" does not exist, or command needs to be rerun after read_all_file_system permission granted.`;
+        } else {
+          let bg_image: HTMLImageElement = new Image();
+          bg_image.src = response;
+          bg_image.onload = () => {
+            this.send_request(WindowRequest.ChangeDesktopBackground, {
+              new_info: bg_image,
+            });
+          };
+        }
+      }
+      return "Trying to change background";
+    } else if (command === "theme") {
+      let new_theme: string = parts[0];
+      if (parts[1] === "--var") {
+        //add vars
+        new_theme = Terminal.add_vars_to_text(new_theme, this.vars);
+      } else if (parts[1] !== "--var" && typeof parts[1] === "string") {
+        return "Second argument, if present, must be flag '--var'";
+      }
+      if (THEMES_LIST.map((t) => String(t)).includes(new_theme)) {
+        this.send_request(WindowRequest.ChangeTheme, {
+          new_theme: THEMES_LIST.find((t) => String(t) === new_theme),
+        });
+      } else {
+        return `Theme must be one of the following: ${THEMES_LIST.join(", ")}`;
+      }
+      return "Trying to change theme";
     } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "malvim" || command === "exporter") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {

@@ -22,6 +22,7 @@ export class FileSystemObject {
   }
   //does not actually check if path exists
   static navigate_path(current_path: Path, path_mod: string): Path {
+    path_mod = path_mod.trim();
     let mod_parts: string[] = path_mod.split("/");
     let path: Path;  //start from root
     if (mod_parts[0] === ".") {

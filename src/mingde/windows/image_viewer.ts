@@ -12,6 +12,7 @@ import { Button } from '../components/button.js';
 import { Icon } from '../components/icon.js';
 
 enum ImageViewerMessage {
+  ImageLoaded,
   //
 }
 
@@ -44,11 +45,14 @@ export class ImageViewer extends VerticalScrollableWithFocus<ImageViewerMessage>
         let icon: Icon<ImageViewerMessage | WindowMessage> = this.components[2];
         icon.image = new Image();
         icon.image.src = response;
-        const image_width: number = this.size[0] - 10 * SCALE - SCROLLBAR_WIDTH / SCALE
+        const image_width: number = this.size[0] - 10 * SCALE - SCROLLBAR_WIDTH / SCALE;
         icon.size = [image_width, (icon.image.height / icon.image.width) * image_width || 1];
         this.entire_height = WINDOW_TOP_HEIGHT + 30 * SCALE + icon.size[1] + 5;
         this.entire_canvas.height = this.entire_height;
         text_input.valid = ValidationState.Valid;
+        icon.image.onload = () => {
+          this.handle_message(ImageViewerMessage.ImageLoaded, true);
+        };
       }, undefined, undefined, undefined, true),
       new Icon(this, [5, WINDOW_TOP_HEIGHT / SCALE + 30], [0, 0], undefined),
     ];
@@ -103,6 +107,15 @@ export class ImageViewer extends VerticalScrollableWithFocus<ImageViewerMessage>
         this.entire_canvas.height = this.entire_height;
       }
       this.do_rerender = super.handle_message(message, data); //will return `true`
+    } else if (message === ImageViewerMessage.ImageLoaded) {
+      let icon: Icon<ImageViewerMessage | WindowMessage> = this.components[2];
+      if (icon.image) {
+        const image_width: number = this.size[0] - 10 * SCALE - SCROLLBAR_WIDTH / SCALE;
+        icon.size = [image_width, (icon.image.height / icon.image.width) * image_width]; // || 1];
+        this.entire_height = WINDOW_TOP_HEIGHT + 30 * SCALE + icon.size[1] + 5;
+        this.entire_canvas.height = this.entire_height;
+      }
+      this.do_rerender = true;
     } else {
       this.do_rerender = super.handle_message(message, data);
     }

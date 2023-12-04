@@ -105,9 +105,12 @@ export class Settings extends WindowWithFocus<SettingsMessage> {
             } else if (typeof response.startsWith("/backgrounds/")) {
               let bg_image: HTMLImageElement = new Image();
               bg_image.src = response;
-              this.send_request(WindowRequest.ChangeDesktopBackground, {
-                new_info: bg_image,
-              });
+              //ask for permission once image loaded
+              bg_image.onload = () => {
+                this.send_request(WindowRequest.ChangeDesktopBackground, {
+                  new_info: bg_image,
+                });
+              };
               text_input.valid = ValidationState.Valid;
             } else {
               text_input.valid = ValidationState.Invalid;

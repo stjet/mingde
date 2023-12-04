@@ -20,9 +20,10 @@ export class TextBox<MessageType> implements FocusableComponent<MessageType> {
   lines: string[];
   max_width: number;
   font_size: keyof typeof FONT_SIZES;
+  private _line_height?: number;
   line_height?: number;
   private cursor_pos: number;
-  private line_pos: number;
+  line_pos: number;
   coords: [number, number];
   size: [number, number];
 
@@ -38,7 +39,8 @@ export class TextBox<MessageType> implements FocusableComponent<MessageType> {
     this.line_pos = this.value.split(" \n ").length - 1;
     this.coords = [coords[0] * SCALE, coords[1] * SCALE];
     this.size = [this.max_width, (FONT_SIZES[font_size] / SCALE + 4) * SCALE];
-    this.line_height = line_height;
+    this._line_height = line_height;
+    this.line_height = this._line_height;
     this.focused = false;
     this.lines = calculate_lines(this.value, FONT_SIZES[this.font_size], FONT_NAME, this.max_width - 2 * margin * SCALE, this.parent.context);
   }
@@ -52,10 +54,10 @@ export class TextBox<MessageType> implements FocusableComponent<MessageType> {
       this.lines = calculate_lines(this.value, FONT_SIZES[this.font_size], FONT_NAME, this.max_width - 2 * margin * SCALE, context);
       this.cached_theme = theme;
     }
-    let line_height: number = typeof this.line_height === "number" ? this.line_height : FONT_SIZES[this.font_size] + DEFAULT_LINE_HEIGHT_EXTRA;
-    this.size = [this.max_width, line_height * this.lines.length + 2 * margin * SCALE];
+    this.line_height = typeof this._line_height === "number" ? this._line_height : FONT_SIZES[this.font_size] + DEFAULT_LINE_HEIGHT_EXTRA;
+    this.size = [this.max_width, this.line_height * this.lines.length + 2 * margin * SCALE];
     for (let i = 0; i < this.lines.length; i++) {
-      context.fillText(this.lines[i], this.coords[0] + margin * SCALE, this.coords[1] + (i + 1) * line_height + margin * SCALE);
+      context.fillText(this.lines[i], this.coords[0] + margin * SCALE, this.coords[1] + (i + 1) * this.line_height + margin * SCALE);
     }
     //outline
     context.lineWidth = 2 * SCALE;
@@ -69,15 +71,15 @@ export class TextBox<MessageType> implements FocusableComponent<MessageType> {
     if (this.focused) {
       const value_lines: string[] = this.value.split(" \n ");
       const rest_width: number = context.measureText(value_lines[this.line_pos].slice(0, this.cursor_pos)).width;
-      const rest_height: number = this.line_pos * line_height; //line_height is already multiplied by SCALE
+      const rest_height: number = this.line_pos * this.line_height; //line_height is already multiplied by SCALE
       //use the char cursor/selector is over to get cursor width. if no char (this.cursor_pos is this.value.length), use the letter a
       const cursor_width: number = context.measureText(value_lines[this.line_pos][this.cursor_pos] || "a").width;
       context.fillStyle = theme_info.highlight;
-      context.fillRect(this.coords[0] + rest_width + margin * SCALE, this.coords[1] + rest_height + margin * SCALE, cursor_width, line_height);
+      context.fillRect(this.coords[0] + rest_width + margin * SCALE, this.coords[1] + rest_height + margin * SCALE, cursor_width, this.line_height);
       //draw the cursor text a different colour so it is legible
-      if (this.value[this.cursor_pos]) {
+      if (this.value.split(" \n ")[this.line_pos][this.cursor_pos]) {
         context.fillStyle = theme_info.text_highlight;
-        context.fillText(this.value[this.cursor_pos], this.coords[0] + rest_width + margin * SCALE, this.coords[1] + rest_height + line_height + margin * SCALE);
+        context.fillText(this.value.split(" \n ")[this.line_pos][this.cursor_pos], this.coords[0] + rest_width + margin * SCALE, this.coords[1] + rest_height + this.line_height + margin * SCALE);
       }
     }
     //

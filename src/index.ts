@@ -4,6 +4,10 @@ import { Taskbar } from './mingde/taskbar.js';
 import { registry } from './mingde/registry.js';
 import { TASKBAR_HEIGHT, SCALE, DEFAULT_WM_SETTINGS } from './mingde/constants.js';
 
+declare global {
+  interface Window { __TAURI__: any; }
+}
+
 //is this needed? idk. meant to make wm not a global var or something, not sure if it actually matters
 (() => {
   let wm = new WindowManager(registry, {}, DEFAULT_WM_SETTINGS, true);

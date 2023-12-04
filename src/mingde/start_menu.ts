@@ -103,8 +103,11 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     }
     //add help and exit
     this.layers[1].add_member(new HighlightButton(this, "Help", [(padding + START_MENU_VWIDTH) / SCALE, height * (Object.values(ApplicationCategories).length + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
-      //placeholder
-      //
+      this.send_request(WindowRequest.OpenWindow, {
+        name: "help",
+        open_layer_name: "windows",
+        unique: false,
+      }, this.secret);
     }));
     this.layers[1].add_member(new HighlightButton(this, "Exit", [(padding + START_MENU_VWIDTH) / SCALE, height * (Object.values(ApplicationCategories).length + 2)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
       //placeholder

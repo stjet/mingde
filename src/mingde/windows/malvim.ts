@@ -13,7 +13,6 @@ import { isKeyboardEvent } from '../guards.js';
 interface FileInfo {
   name: string;
   path: Path;
-  current: boolean;
   changed: boolean;
   line_pos: number;
   cursor_pos: number;
@@ -36,8 +35,11 @@ enum MalvimState {
   None,
   Replace = "r",
   Find = "f",
+  BackFind = "F",
   MaybeDelete = "d",
   Maybeg = "g",
+  MaybeLineNumber = "_shouldntdisplay_",
+  MaybeLineNumberg = "_shouldntdisplayg_",
 }
 
 export class Malvim extends Window<MalvimMessage> {
@@ -50,6 +52,7 @@ export class Malvim extends Window<MalvimMessage> {
   private bottom_message: string;
   private vertical_offset: number; //vertical offset to current line in file
   private state: MalvimState = MalvimState.None;
+  private maybe_line_num?: number; //eg: the 40 in 40gg
   //
 
   constructor(size: [number, number]) {
@@ -137,17 +140,13 @@ export class Malvim extends Window<MalvimMessage> {
       let file_info: FileInfo = this.files[i];
       let file_text: string = `${ file_info.changed ? "+ " : "" }${file_info.name}`;
       const tab_width: number = this.context.measureText(file_text).width + 4 * SCALE;
-      if (file_info.current) {
+      if (i === this.file_index) {
         this.context.fillStyle = THEME_INFO.alt_background;
       } else {
-        this.context.fillStyle = THEME_INFO.background;
+        this.context.fillStyle = THEME_INFO.alt_text_light; //sue me
       }
       this.context.fillRect(file_tab_widths, WINDOW_TOP_HEIGHT, tab_width, band_height);
-      if (file_info.current) {
-        this.context.fillStyle = THEME_INFO.alt_text;
-      } else {
-        this.context.fillStyle = THEME_INFO.text_primary;
-      }
+      this.context.fillStyle = THEME_INFO.alt_text;
       this.context.fillText(file_text, file_tab_widths + 2 * SCALE, WINDOW_TOP_HEIGHT + band_height - 2 * SCALE);
       file_tab_widths += tab_width;
       //
@@ -181,25 +180,35 @@ export class Malvim extends Window<MalvimMessage> {
       this.context.fillText(this.bottom_message, SCALE, this.size[1] - SCALE);
     }
     if (this.state !== MalvimState.None) {
-      const state_width: number = this.context.measureText(String(this.state)).width;
-      this.context.fillText(String(this.state), this.size[0] - state_width, this.size[1] - SCALE);
+      let state_text: string = String(this.state);
+      if (this.state === MalvimState.MaybeLineNumber) {
+        state_text = String(this.maybe_line_num);
+      } else if (this.state === MalvimState.MaybeLineNumberg) {
+        state_text = String(this.maybe_line_num) + "g";
+      }
+      const state_width: number = this.context.measureText(state_text).width;
+      this.context.fillText(state_text, this.size[0] - state_width, this.size[1] - SCALE);
     }
   }
-  open_file(open_path: Path, open_response: string) {
+  open_file(open_path: Path, open_response: string, tab=false) {
     const open_file_info: FileInfo = {
       name: open_path.split("/").slice(-1)[0],
       path: open_path,
-      current: true,
       changed: false,
       line_pos: 0,
       cursor_pos: 0,
       content: open_response,
     };
-    if (this.files.length === 0) {
-      this.files.push(open_file_info);
-      this.file_index = 0;
+    if (!tab) {
+      if (this.files.length === 0) {
+        this.files.push(open_file_info);
+        this.file_index = 0;
+      } else {
+        this.files[this.file_index] = open_file_info;
+      }
     } else {
-      this.files[this.file_index] = open_file_info;
+      this.files.push(open_file_info);
+      this.file_index = this.files.length - 1;
     }
     this.vertical_offset = 0;
   }
@@ -210,18 +219,18 @@ export class Malvim extends Window<MalvimMessage> {
         this.mode = MalvimMode.NORMAL;
         this.state = MalvimState.None;
         //
-      } else if (data.key === ":" && this.mode === MalvimMode.NORMAL) {
+      } else if (data.key === ":" && this.mode === MalvimMode.NORMAL && this.state === MalvimState.None) {
         this.mode = MalvimMode.COMMAND;
         this.state = MalvimState.None;
         //command reset
         this.command = "";
         this.command_cursor_pos = 0;
         //
-      } else if (data.key === "i" && this.mode === MalvimMode.NORMAL) {
+      } else if (data.key === "i" && this.mode === MalvimMode.NORMAL && this.state === MalvimState.None) {
         this.mode = MalvimMode.INSERT;
         this.state = MalvimState.None;
         //
-      } else if (data.key === "v" && this.mode === MalvimMode.NORMAL) {
+      } else if (data.key === "v" && this.mode === MalvimMode.NORMAL && this.state === MalvimState.None) {
         this.mode = MalvimMode.VISUAL;
         this.state = MalvimState.None;
         //
@@ -307,7 +316,7 @@ export class Malvim extends Window<MalvimMessage> {
           this.files[this.file_index].content = current_lines.join(" \n ");
           //this means marked as changed even if the cursor is at the last char + 1, but whatever
           this.files[this.file_index].changed = true;
-        } else if (this.state === MalvimState.Find) {
+        } else if (this.state === MalvimState.Find || this.state === MalvimState.BackFind) {
           if (data.key.length === 1) {
             //delete until next matching char
             const current_lines: string[] = current_content.split(" \n ");
@@ -315,18 +324,26 @@ export class Malvim extends Window<MalvimMessage> {
             //get end index
             let end_index: number = current_info.cursor_pos;
             for (let i = 0; i < line_chars.length; i++) {
-              if (i <= current_info.cursor_pos) {
+              if (i <= current_info.cursor_pos && this.state === MalvimState.Find) {
                 continue;
+              } else if (i >= current_info.cursor_pos && this.state === MalvimState.BackFind) {
+                break;
               } else if (line_chars[i] === data.key) {
                 end_index = i;
-                break;
+                //if regular find, end loop. but if searching backwards,
+                //we want to keep going to find the closest match
+                //eg: "testing", where cursor is on the "g", and keys are "Ft",
+                //it should be the second "t" that is new cursor location, not first
+                if (this.state === MalvimState.Find) {
+                  break;
+                }
               }
             }
+            this.files[this.file_index].cursor_pos = end_index;
             if (data.key !== "Shift") {
-              this.files[this.file_index].cursor_pos = end_index;
+              this.state = MalvimState.None;
             }
           }
-          this.state = MalvimState.None;
         } else if (this.state === MalvimState.Maybeg) {
           if (data.key === "g") {
             this.files[this.file_index].cursor_pos = 0;
@@ -401,6 +418,17 @@ export class Malvim extends Window<MalvimMessage> {
           if (data.key !== "Shift") {
             this.state = MalvimState.None;
           }
+        } else if (this.state === MalvimState.MaybeLineNumber && data.key === "g") {
+          this.state = MalvimState.MaybeLineNumberg;
+        } else if (this.state === MalvimState.MaybeLineNumberg && data.key === "g") {
+          //jump to that line number (if doesn't exist, jump to end)
+          this.files[this.file_index].cursor_pos = 0;
+          this.files[this.file_index].line_pos = this.maybe_line_num - 1 > current_content.split(" \n ").length - 1 ? current_content.split(" \n ").length - 1 : this.maybe_line_num - 1;
+          this.maybe_line_num = undefined;
+          this.state = MalvimState.None;
+        } else if (this.state === MalvimState.MaybeLineNumber && isNaN(Number(data.key)) || data.key === "." || data.key === "-") {
+          this.maybe_line_num = undefined;
+          this.state = MalvimState.None;
         } else if (data.key === "h") {
           //left
           this.files[this.file_index].cursor_pos = current_info.cursor_pos - 1 > 0 ? current_info.cursor_pos - 1 : 0;
@@ -427,15 +455,20 @@ export class Malvim extends Window<MalvimMessage> {
         } else if (data.key === "$") {
           //end of the line
           this.files[this.file_index].cursor_pos = current_content.split(" \n ")[current_info.line_pos].length;
-        } else if (data.key === "0") {
+        } else if (data.key === "0" && typeof this.maybe_line_num === "undefined") {
           //start of the line
           this.files[this.file_index].cursor_pos = 0;
+        } else if (!isNaN(Number(data.key)) && data.key !== "." && data.key !== "-") {
+          this.maybe_line_num = this.maybe_line_num ? Number(String(this.maybe_line_num) + data.key) : Number(data.key);
+          this.state = MalvimState.MaybeLineNumber;
         } else if (data.key === "r") {
           this.state = MalvimState.Replace;
         } else if (data.key === "d") {
           this.state = MalvimState.MaybeDelete;
         } else if (data.key === "f") {
           this.state = MalvimState.Find;
+        } else if (data.key === "F") {
+          this.state = MalvimState.BackFind;
         } else if (data.key === "g") {
           //g
           //gg, gh, gj, gk, gl
@@ -470,12 +503,14 @@ export class Malvim extends Window<MalvimMessage> {
         } else if (data.key === "Enter") {
           let parts: string[] = this.command.split(" ");
           let first: string = parts.shift();
-          if (first.startsWith("e") && "edit".includes(first)) {
+          if ((first.startsWith("e") && "edit".includes(first)) || (((first.startsWith("tabe") && "tabedit".includes(first)) || first === "t") && this.files.length > 0)) {
             if (parts.length > 2) {
               this.bottom_message = "Incorrect amount of arguments";
             } else if (parts.length === 2 && parts[1] !== "--new") {
               this.bottom_message = "If two arguments, second must be \"--new\"";
             } else {
+              //if not edit, then is tab
+              const is_tab: boolean = !(first.startsWith("e") && "edit".includes(first));
               let base_path: Path;
               if (this.files.length > 0) {
                 //parent path
@@ -513,7 +548,7 @@ export class Malvim extends Window<MalvimMessage> {
                       this.bottom_message = "Missing permission to write to filesystem";
                     } else {
                       //add to current opened files
-                      this.open_file(open_path, "");
+                      this.open_file(open_path, "", is_tab);
                       //
                     }
                   } else {
@@ -524,7 +559,7 @@ export class Malvim extends Window<MalvimMessage> {
                   this.bottom_message = "Can only open files, not directories";
                 } else {
                   //add to current opened files
-                  this.open_file(open_path, open_response);
+                  this.open_file(open_path, open_response, is_tab);
                   //
                 }
               }
@@ -555,12 +590,16 @@ export class Malvim extends Window<MalvimMessage> {
             }
           } else if (first.startsWith("%s")) {
             //
-          } else if (first === "tabnew" || first === "tabe" || first === "t") {
-            //
-          } else if (first === "tabnext" || first === "tn") {
-            //
-          } else if ((first.startsWith("tabprev") && "tabprevious".includes(first)) || first === "tp") {
-            //
+          } else if ((first.startsWith("tabn") && "tabnext".includes(first)) || first === "tn") {
+            this.file_index++;
+            if (this.file_index > this.files.length - 1) {
+              this.file_index = 0;
+            }
+          } else if ((first.startsWith("tabp") && "tabprevious".includes(first)) || first === "tp") {
+            this.file_index--;
+            if (this.file_index < 0) {
+              this.file_index = this.files.length - 1;
+            }
           } else {
             this.bottom_message = `Not a command: ${this.command}`;
           }
@@ -577,6 +616,21 @@ export class Malvim extends Window<MalvimMessage> {
         this.do_rerender = false;
       }
       //
+    } else if (message === WindowMessage.GenericShortcut) {
+      //generic shortcut left and right to cycle tabs
+      if (data === "left" && this.files.length > 1) {
+        this.file_index--;
+        if (this.file_index < 0) {
+          this.file_index = this.files.length - 1;
+        }
+        this.do_rerender = true;
+      } else if (data === "right" && this.files.length > 1) {
+        this.file_index++;
+        if (this.file_index > this.files.length - 1) {
+          this.file_index = 0;
+        }
+      }
+      this.do_rerender = true;
     }
     //
     return this.do_rerender;

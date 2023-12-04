@@ -182,7 +182,7 @@ export class Notepad extends VerticalScrollableWithFocus<NotepadMessage> {
       }
       let text_box = this.layers[2].members[0];
       if (isTextBox(text_box)) {
-        const min_entire_height: number = WINDOW_TOP_HEIGHT + margin * SCALE * 3 + text_box.size[1] + 25 * SCALE;
+        const min_entire_height: number = WINDOW_TOP_HEIGHT + margin * SCALE * 3 + 25 * SCALE + text_box.line_pos * text_box.line_height;
         this.entire_height = min_entire_height > this.size[1] ? min_entire_height : this.size[1];
         this.entire_canvas.height = this.entire_height;
         this.scroll_y = this.entire_height - this.size[1];

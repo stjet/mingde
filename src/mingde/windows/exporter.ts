@@ -2,7 +2,7 @@ import { WindowWithFocus, WindowMessage, Layer } from '../wm.js';
 import { WindowRequest } from '../requests.js';
 import { Themes } from '../themes.js';
 import { WINDOW_TOP_HEIGHT, SCALE, FONT_SIZES } from '../constants.js';
-import { isTextInput } from '../guards.js';
+import { isTextInput, isFocusableComponent, isKeyboardEvent } from '../guards.js';
 import { ValidationState } from '../utils.js';
 
 import { Button } from '../components/button.js';
@@ -46,8 +46,20 @@ export class Exporter extends WindowWithFocus<ExporterMessage> {
             if (typeof response === "undefined") {
               //
             } else {
+              const response_str: string = typeof response === "string" ? response : JSON.stringify(response);
               //download file or director
-              //
+              if (window.__TAURI__) {
+                const save_path = window.__TAURI__.dialog.save(); //probably put in some arguments
+                window.__TAURI__.fs.writeTextFile(save_path, response_str);
+              } else {
+                const blob: Blob = new Blob([response_str], { type: "text/plain" });
+                const download: HTMLAnchorElement = document.createElement("A") as HTMLAnchorElement;
+                download.href = URL.createObjectURL(blob);
+                download.download = input_value.split("/")[input_value.split("/").length - 1];
+                document.body.appendChild(download);
+                download.click();
+                download.remove();
+              }
             }
           }
         }, undefined, undefined, undefined, true),
@@ -66,6 +78,18 @@ export class Exporter extends WindowWithFocus<ExporterMessage> {
           } else {
             //download everything
             //
+            if (window.__TAURI__) {
+              const save_path = window.__TAURI__.dialog.save(); //probably put in some arguments
+              window.__TAURI__.fs.writeTextFile(save_path, JSON.stringify(response));
+            } else {
+              const blob: Blob = new Blob([JSON.stringify(response)], { type: "text/plain" });
+              const download: HTMLAnchorElement = document.createElement("A") as HTMLAnchorElement;
+              download.href = URL.createObjectURL(blob);
+              download.download = "all.json";
+              document.body.appendChild(download);
+              download.click();
+              download.remove();
+            }
           }
         }, undefined, undefined, undefined, true),
       }
@@ -79,7 +103,21 @@ export class Exporter extends WindowWithFocus<ExporterMessage> {
     }
   }
   handle_message(message: ExporterMessage | WindowMessage, data: any): boolean {
-    this.do_rerender = super.handle_message(message, data);
+    if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
+      if ((data.key.length === 1 || data.key === "Backspace" || data.key === "ArrowLeft" || data.key === "ArrowRight") && !data.altKey) {
+        let focused_text_input = this.layers[0].members[1];
+        if (isFocusableComponent(focused_text_input)) {
+          if (focused_text_input.focused) {
+            focused_text_input.handle_message(message, data);
+            this.do_rerender = true;
+          }
+        }
+      } else {
+        this.do_rerender = super.handle_message(message, data);
+      }
+    } else {
+      this.do_rerender = super.handle_message(message, data);
+    }
     return this.do_rerender;
   }
 }
