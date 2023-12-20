@@ -341,7 +341,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
     this.user_text = "";
     this.previous_user_text = "";
     this.vars = {};
-    this.paragraph = new Paragraph(this, this.text, [margin, WINDOW_TOP_HEIGHT / SCALE + margin + FONT_SIZES.NORMAL / SCALE], "alt_text", "NORMAL", this.size[0] / SCALE - SCROLLBAR_WIDTH / SCALE, undefined, true);
+    this.paragraph = new Paragraph(this, this.text, [margin, WINDOW_TOP_HEIGHT / SCALE + margin + FONT_SIZES.NORMAL / SCALE], "alt_text", "NORMAL", this.size[0] / SCALE - SCROLLBAR_WIDTH / SCALE, undefined, true, true);
     this.paragraph.text = this.text + this.user_text + "█";
     this.paragraph.lines = this.paragraph.calculate_lines();
   }
@@ -967,7 +967,6 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         this.vars = vars_snapshot;
       }
       //remove final trailing new line
-      console.log(logged.length)
       return logged.trim();
     } else if (command === "copy") {
       const input: string = parts.join(" ");
@@ -1080,7 +1079,8 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         this.user_text += data.key;
       } else if (data.key === "Enter") {
         //process the command
-        const result: string = this.handle_input(this.user_text);
+        //reset colours at end
+        const result: string = this.handle_input(this.user_text) + " \\033[0;m";
         if (typeof result === "undefined") {
           //probably the clear command,
           //or another command that messes with the terminal text

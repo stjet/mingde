@@ -96,21 +96,26 @@ export function list_list_includes(list_list: any[][], list: any[]): boolean {
   }) ? true : false;
 }
 
-export function calculate_lines(text: string, font_size: number, font_name: string, line_width: number, context: CanvasRenderingContext2D): string[] {
+export function calculate_lines(text: string, font_size: number, font_name: string, line_width: number, context: CanvasRenderingContext2D, colored: boolean = false): string[] {
   let lines: string[] = [];
   let line: string = "";
+  let visible_line: string = ""; //same as line when colored is false
   context.font = `${font_size}px ${font_name}`;
   let words: string[] = text.split(" ");
   for (let i = 0; i < words.length; i++) {
-    let measured_width: number = context.measureText(line + words[i]).width;
+    let measured_width: number = context.measureText(visible_line + words[i]).width;
     if (words[i] === "\n") {
       lines.push(line);
       line = "";
+      visible_line = "";
+    } else if (colored && words[i].startsWith("\\033[") && words[i].endsWith(";m")) {
+      line += words[i] + " ";
     } else if (measured_width > line_width) {
       let overflow_measured_width: number = context.measureText(words[i]).width;
       if (overflow_measured_width > line_width) {
         //if word gets too long, break it up and wrap over several lines
-        let word_line: string = line; //starting from the current line (don't start long word on new line)
+        const old_visible_length: number = visible_line.length;
+        let word_line: string = visible_line; //starting from the current line (don't start long word on new line)
         for (let j = 0; j < words[i].length; j++) {
           let word_measured_width: number = context.measureText(word_line + words[i][j]).width;
           if (word_measured_width > line_width && word_line.length === 0) {
@@ -124,19 +129,24 @@ export function calculate_lines(text: string, font_size: number, font_name: stri
           }
         }
         if (word_line.length > 0) {
-          line = word_line + " ";
+          line = line + word_line.slice(old_visible_length) + " ";
+          visible_line = word_line;
         } else {
           line = "";
+          visible_line = "";
         }
       } else {
         lines.push(line);
         line = words[i] + " ";
+        visible_line = words[i] + " ";
       }
     } else {
       line += words[i] + " ";
+      visible_line += words[i] + " ";
     }
   }
   if (line) lines.push(line);
-  return lines;
+  //get rid of trailing space added that wasn't there
+  return lines.map((l) => l.slice(0, -1));
 }
 
