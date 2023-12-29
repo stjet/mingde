@@ -94,12 +94,12 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
             open_layer_name: "windows",
             unique: false,
           }, this.secret);
-        }));
+        }, true));
       }
       //add the highlight buttons too, why not
       this.layers[1].add_member(new HighlightButton(this, Object.keys(ApplicationCategories)[i], [(padding + START_MENU_VWIDTH) / SCALE, height * (i + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
         this.handle_message_window(StartMenuMessage.ToCategory, Object.values(ApplicationCategories)[i]);
-      }));
+      }, true));
     }
     //add help and exit
     this.layers[1].add_member(new HighlightButton(this, "Help", [(padding + START_MENU_VWIDTH) / SCALE, height * (Object.values(ApplicationCategories).length + 1)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
@@ -194,9 +194,10 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
         }
       }
     } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
-      if (data.key === "ArrowDown" || data.key === "ArrowUp" || data.key === "Enter") {
-        //find all highlight buttons
-        let highlight_buttons: HighlightButton<StartMenuMessage | StartMenuMessageStandard | WindowMessage>[] = this.components.filter((c): c is HighlightButton<StartMenuMessage | StartMenuMessageStandard | WindowMessage> => c.type === "highlight-button");
+      //find all highlight buttons
+      let highlight_buttons: HighlightButton<StartMenuMessage | StartMenuMessageStandard | WindowMessage>[] = this.components.filter((c): c is HighlightButton<StartMenuMessage | StartMenuMessageStandard | WindowMessage> => c.type === "highlight-button");
+      const highlight_shortcut_keys: string[] = highlight_buttons.filter((b) => b.first_key_underline).map((b) => b.text[0].toLowerCase());
+      if (data.key === "ArrowDown" || data.key === "ArrowUp" || data.key === "Enter" || highlight_shortcut_keys.includes(data.key.toLowerCase())) {
         let first_highlighted = highlight_buttons.find((c) => c.highlighted);
         //unhighlight all buttons
         highlight_buttons.forEach((c) => {
@@ -228,9 +229,26 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
             }
             highlight_buttons[index].highlighted = true;
           }
-        } else if (data.key === "Enter") {
+        } else if (data.key === "Enter" && first_highlighted) {
           //todo: kinda hacky, make it something else
           first_highlighted.handle_message(WindowMessage.MouseDown, new MouseEvent("mousedown"));
+        } else {
+          //category shortcut key, so jump to the next category
+          const current_index: number = highlight_buttons.findIndex((c) => c.id === first_highlighted?.id);
+          let index: number = current_index === -1 ? 0 : current_index; //if nothing highlighted, default to first one
+          const is_shortcut_category = (c) => c.first_key_underline && c.text[0].toLowerCase() === data.key.toLowerCase();
+          //find the next one, so even if there are multiple things still work
+          let new_index: number = highlight_buttons.slice(index + 1).findIndex(is_shortcut_category);
+          if (new_index === -1) {
+            //search from beginning
+            new_index = highlight_buttons.findIndex(is_shortcut_category);
+          } else {
+            new_index += index + 1;
+          }
+          highlight_buttons[new_index].highlighted = true;
+          if (new_index === current_index) {
+            return this.do_rerender; //do not rerender
+          }
         }
         this.do_rerender = true;
       }
