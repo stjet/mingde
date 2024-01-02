@@ -55,8 +55,11 @@ export interface ChangeCursorValue extends WindowRequestValue {
 
 export interface ChangeCoordsValue extends WindowRequestValue {
   delta_coords: [number, number];
+  stick_top?: boolean;
   stick_bottom?: boolean;
+  stick_left?: boolean;
   stick_right?: boolean;
+  stick_bottom_taskbar_offset?: boolean; //the bottom not including the taskbar
 }
 
 export interface ChangeThemeValue extends WindowRequestValue {

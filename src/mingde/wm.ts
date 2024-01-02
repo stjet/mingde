@@ -1,6 +1,6 @@
 import { DesktopBackgroundValue, Themes, THEME_INFOS } from './themes.js';
 import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager, isFocusableComponent } from './guards.js';
-import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES } from './constants.js';
+import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES, RESIZE_STEP } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
 import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
@@ -149,6 +149,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
   readonly render_view_window: (theme: Themes) => void;
   readonly handle_message_window: (message: MessageType | WindowMessage, data: any) => boolean;
   readonly set_secret: (secret: string) => void;
+  private create_top_components: () => Component<MessageType | WindowMessage>[];
   cached_settings: WindowManagerSettings;
 
   private top_components: Component<MessageType | WindowMessage>[];
@@ -199,7 +200,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       if (this.secret) return;
       this.secret = secret;
     };
-    const create_top_components = (): Component<MessageType | WindowMessage>[] => {
+    this.create_top_components = (): Component<MessageType | WindowMessage>[] => {
       return [
         new Button<MessageType | WindowMessage>(this, "x", [this.size[0] / SCALE - 4 - 17, WINDOW_TOP_HEIGHT / SCALE - 4 - 17], 17, 1, () => {
           this.send_request(WindowRequest.CloseWindow, {}); //, this.secret);
@@ -208,7 +209,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
       ];
     }
     //Window top bar components, currently window title and close button
-    this.top_components = create_top_components();
+    this.top_components = this.create_top_components();
     //intercept requests, so top bar close button, dragging, etc, can't be overriden
     //bug: where move mode still happens when dragging window near bottom and releasing on taskbar?
     this.handle_message_window = (message: MessageType | WindowMessage, data: any) => {
@@ -302,7 +303,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             this.size[0] = WINDOW_MIN_DIMENSIONS[0];
           }
           this.canvas.width = this.size[0];
-          this.top_components = create_top_components();
+          this.top_components = this.create_top_components();
           //tell extending class that resize happened
           this.handle_message(WindowMessage.WindowResize, this.size);
           this.do_rerender = true;
@@ -364,7 +365,9 @@ export class Window<MessageType> implements WindowLike<MessageType> {
             this.size[0] = WINDOW_MIN_DIMENSIONS[0];
           }
           this.canvas.width = this.size[0];
-          this.top_components = create_top_components();
+          //since horizontal width modified, need to recreate top components
+          //(unnecessary if only vertical height change)
+          this.top_components = this.create_top_components();
           //tell extending class that resize happened
           this.handle_message(WindowMessage.WindowResize, this.size);
           this.do_rerender = true;
@@ -438,6 +441,135 @@ export class Window<MessageType> implements WindowLike<MessageType> {
               this.send_request(WindowRequest.ChangeCoords, {
                 delta_coords: [0, 15],
               }, this.secret);
+            } else if (SHORTCUTS["window-left-half"].includes(data.key) || SHORTCUTS["window-right-half"].includes(data.key)) {
+              //change coords
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [0, 0], //dummy
+                stick_left: SHORTCUTS["window-left-half"].includes(data.key),
+                stick_right: SHORTCUTS["window-right-half"].includes(data.key),
+                stick_top: true,
+              }, this.secret);
+              if (this.resizable) {
+                //change size
+                this.size[0] = document.body.clientWidth * SCALE / 2;
+                this.do_rerender = true;
+                if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+                  this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+                  this.do_rerender = false;
+                }
+                this.canvas.width = this.size[0];
+                this.size[1] = document.body.clientHeight * SCALE - TASKBAR_HEIGHT;
+                this.do_rerender = true;
+                if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+                  this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+                  this.do_rerender = false;
+                }
+                this.canvas.height = this.size[1];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+                //top components need to be recreated since width changed
+                this.top_components = this.create_top_components();
+              }
+            } else if (SHORTCUTS["window-top-half"].includes(data.key) || SHORTCUTS["window-bottom-half"].includes(data.key)) {
+              //change coords
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [0, 0], //dummy
+                stick_left: true,
+                stick_top: SHORTCUTS["window-top-half"].includes(data.key),
+                stick_bottom_taskbar_offset: SHORTCUTS["window-bottom-half"].includes(data.key),
+              }, this.secret);
+              if (this.resizable) {
+                //change size
+                this.size[0] = document.body.clientWidth * SCALE;
+                this.do_rerender = true;
+                if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+                  this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+                  this.do_rerender = false;
+                }
+                this.canvas.width = this.size[0];
+                this.size[1] = (document.body.clientHeight * SCALE - TASKBAR_HEIGHT) / 2;
+                this.do_rerender = true;
+                if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+                  this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+                  this.do_rerender = false;
+                }
+                this.canvas.height = this.size[1];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+                //top components need to be recreated since width changed
+                this.top_components = this.create_top_components();
+              }
+            } else if (SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-left-bottom-quad"].includes(data.key) || SHORTCUTS["window-right-top-quad"].includes(data.key)|| SHORTCUTS["window-right-bottom-quad"].includes(data.key)) {
+              //change coords
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [0, 0], //dummy
+                stick_left: SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-left-bottom-quad"].includes(data.key),
+                stick_right: SHORTCUTS["window-right-top-quad"].includes(data.key) || SHORTCUTS["window-right-bottom-quad"].includes(data.key),
+                stick_top: SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-right-top-quad"].includes(data.key),
+                stick_bottom_taskbar_offset: SHORTCUTS["window-left-bottom-quad"].includes(data.key) || SHORTCUTS["window-right-bottom-quad"].includes(data.key),
+              }, this.secret);
+              if (this.resizable) {
+                //change size
+                this.size[0] = (document.body.clientWidth * SCALE) / 2;
+                this.do_rerender = true;
+                if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+                  this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+                  this.do_rerender = false;
+                }
+                this.canvas.width = this.size[0];
+                this.size[1] = (document.body.clientHeight * SCALE - TASKBAR_HEIGHT) / 2;
+                this.do_rerender = true;
+                if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+                  this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+                  this.do_rerender = false;
+                }
+                this.canvas.height = this.size[1];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+                //top components need to be recreated since width changed
+                this.top_components = this.create_top_components();
+              }
+            } else if (this.resizable) {
+              if (SHORTCUTS["window-shrink-x"].includes(data.key)) {
+                this.size[0] -= RESIZE_STEP;
+                this.do_rerender = true;
+                if (this.size[0] < WINDOW_MIN_DIMENSIONS[0]) {
+                  this.size[0] = WINDOW_MIN_DIMENSIONS[0];
+                  this.do_rerender = false;
+                }
+                this.canvas.width = this.size[0];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+                //top components need to be recreated since width changed
+                this.top_components = this.create_top_components();
+              } else if (SHORTCUTS["window-grow-x"].includes(data.key)) {
+                this.size[0] += RESIZE_STEP;
+                this.do_rerender = true;
+                //WM handles making sure dimensions don't go outside screen,
+                //cuz windows dont have access to their coords
+                this.canvas.width = this.size[0];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+                this.top_components = this.create_top_components();
+              } else if (SHORTCUTS["window-shrink-y"].includes(data.key)) {
+                this.size[1] -= RESIZE_STEP;
+                this.do_rerender = true;
+                if (this.size[1] < WINDOW_MIN_DIMENSIONS[1]) {
+                  this.size[1] = WINDOW_MIN_DIMENSIONS[1];
+                  this.do_rerender = false;
+                }
+                this.canvas.height = this.size[1];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+              } else if (SHORTCUTS["window-grow-y"].includes(data.key)) {
+                this.size[1] += RESIZE_STEP;
+                this.do_rerender = true;
+                //WM handles making sure dimensions don't go outside screen,
+                //cuz windows dont have access to their coords
+                this.canvas.height = this.size[1];
+                //tell extending class that resize happened
+                this.handle_message(WindowMessage.WindowResize, this.size);
+              }
             }
             propogate_down = false;
           }
@@ -453,7 +585,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
         this.size = data;
         this.canvas.width = this.size[0];
         this.canvas.height = this.size[1];
-        this.top_components = create_top_components();
+        this.top_components = this.create_top_components();
         this.do_rerender = true;
       } else if (message === WindowMessage.SettingsChange) {
         //only sent to windows with permission to change settings
@@ -729,8 +861,8 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
         },
         "scripts": {
           "factorial.yu": "var_set $1$ echo 1 \n var_set $n$ echo $_args_$ \n var_set $total$ echo $n$ \n GOTO end IF $n$ IS $1$ \n LABEL loop \n var_set $n_minus_one$ calc sub $n$ 1 \n var_set $total$ calc mul $total$ $n_minus_one$ \n var_set $n$ echo $n_minus_one$ \n GOTO loop IF $n_minus_one$ NOT $1$ \n LABEL end \n echo $_args_$! = $total$",
-          "cowsay.yu": ";set all the initial line values \n var_set $line_1$ echo   ________________________________________ \n var_set $line_2$ echo  / \n var_set $extra_lines$ echo  \n var_set $line_3$ echo  \\ \n var_set $line_4$ echo   ---------------------------------------- \n var_set $line_5$ echo         \\   ^__^ \n var_set $line_6$ echo          \\  (oo)\\_______ \n var_set $line_7$ echo             (__)\\       )\\/\\ \n var_set $line_8$ echo                 ||----w | \n var_set $line_9$ echo                 ||     || \n ;calculate amount of lines needed \n var_set $40$ echo 40 \n var_set $2$ echo 2 \n var_set $0$ echo 0 \n var_set $length$ var_length $_args_$ \n var_set $total_lines$ calc div $length$ $40$ \n var_set $line_2_words$ var_slice $_args_$ 0 40 \n ;need to also add the additional spaces and \\ \n var_set $l2w_length$ var_length $line_2_words$ \n var_set $l2_remaining_length$ calc sub 40 $l2w_length$ \n GOTO l2_loop_skip IF $l2_remaining_length$ IS $0$ \n LABEL line_2_loop \n var_append $line_2_words$ echo  \n var_set $l2_remaining_length$ calc sub $l2_remaining_length$ 1 \n var_append $line_2_words$ echo   \n GOTO line_2_loop IF $l2_remaining_length$ GT $0$ \n LABEL l2_loop_skip \n var_append $line_2_words$ echo \\ \n var_append $line_2$ echo $line_2_words$ \n ;set line '3' words depending on whether more than 2 lines or not \n GOTO less_than_2 IF $total_lines$ LTE $2$ \n var_set $last$ calc mod $length$ 40 \n GOTO skip_0 IF $last$ NOT $0$ \n var_set $last$ echo 40 \n LABEL skip_0 \n ;turn it negative \n var_set $last$ calc mul $last$ -1 \n var_set $line_3_words$ var_slice $_args_$ $last$ \n GOTO l3_start \n LABEL less_than_2 \n var_set $line_3_words$ var_slice $_args_$ 40 80 \n LABEL l3_start \n ;see previous comment \n var_set $l3w_length$ var_length $line_3_words$ \n var_set $l3_remaining_length$ calc sub 40 $l3w_length$ \n GOTO l3_loop_skip IF $l3_remaining_length$ IS $0$ \n LABEL line_3_loop \n var_append $line_3_words$ echo  \n var_set $l3_remaining_length$ calc sub $l3_remaining_length$ 1 \n var_append $line_3_words$ echo   \n GOTO line_3_loop IF $l3_remaining_length$ GT $0$ \n LABEL l3_loop_skip \n var_append $line_3_words$ echo / \n var_append $line_3$ echo $line_3_words$ \n GOTO print IF $total_lines$ LTE $2$ \n LABEL more_than_2 \n ;first line is already handled for us \n ;sub 2 minus 1, net is sub 1 \n var_set $additional_count$ calc sub $total_lines$ 1 \n var_set $i$ echo 1 \n LABEL additional_loop \n var_set $start$ calc mul $i$ 40 \n var_set $end$ calc add $start$ 40 \n var_set $add_line$ var_slice $_args_$ $start$ $end$ \n var_append $extra_lines$ echo  |$add_line$| \\n  \n var_set $i$ calc add $i$ 1 \n echo $i$ $additional_count$ \n GOTO additional_loop IF $i$ LT $additional_count$ \n LABEL print \n ;now print out the cow \n echo $line_1$ \\n $line_2$ \\n $extra_lines$$line_3$ \\n $line_4$ \\n $line_5$ \\n $line_6$ \\n $line_7$ \\n $line_8$ \\n $line_9$",
-          "grep.yu": "GOTO main \n ; functions, they need $@_return$ \n LABEL word_index \n ;expects args $@words$ and $@index$, sets answer to var $%word$ \n var_set $#w_start$ echo 0 \n var_set $#space$ echo   \n var_set $#w_end$ echo 0 \n var_set $#char_length$ var_length $@words$ \n var_set $#current_i$ echo 0 \n LABEL #find_word \n var_set $#wep1$ calc add $#w_end$ 1 \n var_set $#c_w$ var_slice $@words$ $#w_end$ $#wep1$ \n GOTO #skip_wi IF $#c_w$ NOT $#space$ \n LABEL #c_i \n var_set $#current_i$ calc add $#current_i$ 1 \n GOTO #skip_wi2 \n LABEL #skip_wi \n GOTO #c_i IF $#char_length$ IS $#w_end$ \n LABEL #skip_wi2 \n var_set $#w_end$ echo $#wep1$ \n GOTO #find_word IF $#current_i$ LTE $@index$ \n var_slice $@words$ $#w_start$ $#w_end$ \n var_set $%word$ var_slice $@words$ $#w_start$ $#w_end$ \n GOTO $@_return$ \n LABEL main \n var_set $@words$ echo $_args_$ \n var_set $@index$ echo 0 \n var_set $@_return$ echo return_path \n GOTO word_index \n LABEL return_path \n var_set $contents$ cat $%word$ --var \n var_set $word_length$ var_length $%word$ \n var_set $search$ var_slice $_args_$ $word_length$ \n var_set $total_length$ var_length $contents$ \n var_set $start_index$ echo 0 \n var_set $search_length$ var_length $search$ \n var_set $end_index$ echo $search_length$ \n var_set $grepped$ echo  \n LABEL grep_loop \n var_set $w$ var_slice $contents$ $start_index$ $end_index$ \n GOTO add_grep IF $w$ IS $search$ \n GOTO add_skip \n LABEL add_grep \n echo asdf \n var_append $grepped$ echo Found at indexes $start_index$ to $end_index$ \\n  \n var_set $start_index$ calc sub $end_index$ 1 \n var_set $end_index$ calc add $start_index$ $search_length$ \n LABEL add_skip \n var_set $start_index$ calc add $start_index$ 1 \n var_set $end_index$ calc add $end_index$ 1 \n GOTO grep_loop IF $end_index$ LT $total_length$ \n var_set $blank$ echo   \n GOTO none_found IF $grepped$ IS $blank$ \n echo $grepped$ \n GOTO end \n LABEL none_found \n echo No matches found \n LABEL end",
+          "cowsay.yu": ";set all the initial line values \n var_set $line_1$ echo   ________________________________________ \n var_set $line_2$ echo  / \n var_set $extra_lines$ echo  \n var_set $line_3$ echo  \\ \n var_set $line_4$ echo   ---------------------------------------- \n var_set $line_5$ echo         \\   ^__^ \n var_set $line_6$ echo          \\  (oo)\\_______ \n var_set $line_7$ echo             (__)\\       )\\/\\ \n var_set $line_8$ echo                 ||----w | \n var_set $line_9$ echo                 ||     || \n ;calculate amount of lines needed \n var_set $40$ echo 40 \n var_set $2$ echo 2 \n var_set $0$ echo 0 \n var_set $length$ var_length $_args_$ \n var_set $total_lines$ calc div $length$ $40$ \n var_set $line_2_words$ var_slice $_args_$ 0 40 \n ;need to also add the additional spaces and \\ \n var_set $l2w_length$ var_length $line_2_words$ \n var_set $l2_remaining_length$ calc sub 40 $l2w_length$ \n GOTO l2_loop_skip IF $l2_remaining_length$ IS $0$ \n LABEL line_2_loop \n var_append $line_2_words$ echo  \n var_set $l2_remaining_length$ calc sub $l2_remaining_length$ 1 \n var_append $line_2_words$ echo   \n GOTO line_2_loop IF $l2_remaining_length$ GT $0$ \n LABEL l2_loop_skip \n var_append $line_2_words$ echo \\ \n var_append $line_2$ echo $line_2_words$ \n ;set line '3' words depending on whether more than 2 lines or not \n GOTO less_than_2 IF $total_lines$ LTE $2$ \n var_set $last$ calc mod $length$ 40 \n GOTO skip_0 IF $last$ NOT $0$ \n var_set $last$ echo 40 \n LABEL skip_0 \n ;turn it negative \n var_set $last$ calc mul $last$ -1 \n var_set $line_3_words$ var_slice $_args_$ $last$ \n GOTO l3_start \n LABEL less_than_2 \n var_set $line_3_words$ var_slice $_args_$ 40 80 \n LABEL l3_start \n ;see previous comment \n var_set $l3w_length$ var_length $line_3_words$ \n var_set $l3_remaining_length$ calc sub 40 $l3w_length$ \n GOTO l3_loop_skip IF $l3_remaining_length$ IS $0$ \n LABEL line_3_loop \n var_append $line_3_words$ echo  \n var_set $l3_remaining_length$ calc sub $l3_remaining_length$ 1 \n var_append $line_3_words$ echo   \n GOTO line_3_loop IF $l3_remaining_length$ GT $0$ \n LABEL l3_loop_skip \n var_append $line_3_words$ echo / \n var_append $line_3$ echo $line_3_words$ \n GOTO print IF $total_lines$ LTE $2$ \n LABEL more_than_2 \n ;first line is already handled for us \n ;sub 2 minus 1, net is sub 1 \n var_set $additional_count$ calc sub $total_lines$ 1 \n var_set $i$ echo 1 \n LABEL additional_loop \n var_set $start$ calc mul $i$ 40 \n var_set $end$ calc add $start$ 40 \n var_set $add_line$ var_slice $_args_$ $start$ $end$ \n var_append $extra_lines$ echo  |$add_line$| \\n  \n var_set $i$ calc add $i$ 1 \n GOTO additional_loop IF $i$ LT $additional_count$ \n LABEL print \n ;now print out the cow \n echo $line_1$ \\n $line_2$ \\n $extra_lines$$line_3$ \\n $line_4$ \\n $line_5$ \\n $line_6$ \\n $line_7$ \\n $line_8$ \\n $line_9$",
+          "grep.yu": "GOTO main \n ; functions, they need $@_return$ \n LABEL word_index \n ;expects args $@words$ and $@index$, sets answer to var $%word$ \n var_set $#w_start$ echo 0 \n var_set $#space$ echo   \n var_set $#w_end$ echo 0 \n var_set $#char_length$ var_length $@words$ \n var_set $#current_i$ echo 0 \n LABEL #find_word \n var_set $#wep1$ calc add $#w_end$ 1 \n var_set $#c_w$ var_slice $@words$ $#w_end$ $#wep1$ \n GOTO #skip_wi IF $#c_w$ NOT $#space$ \n LABEL #c_i \n var_set $#current_i$ calc add $#current_i$ 1 \n GOTO #skip_wi2 \n LABEL #skip_wi \n GOTO #c_i IF $#char_length$ IS $#w_end$ \n LABEL #skip_wi2 \n var_set $#w_end$ echo $#wep1$ \n GOTO #find_word IF $#current_i$ LTE $@index$ \n var_slice $@words$ $#w_start$ $#w_end$ \n var_set $%word$ var_slice $@words$ $#w_start$ $#w_end$ \n GOTO $@_return$ \n LABEL main \n var_set $@words$ echo $_args_$ \n var_set $@index$ echo 0 \n var_set $@_return$ echo return_path \n GOTO word_index \n LABEL return_path \n var_set $contents$ cat $%word$ --var \n var_set $word_length$ var_length $%word$ \n var_set $search$ var_slice $_args_$ $word_length$ \n var_set $total_length$ var_length $contents$ \n var_set $start_index$ echo 0 \n var_set $search_length$ var_length $search$ \n var_set $end_index$ echo $search_length$ \n var_set $grepped$ echo  \n LABEL grep_loop \n var_set $w$ var_slice $contents$ $start_index$ $end_index$ \n GOTO add_grep IF $w$ IS $search$ \n GOTO add_skip \n LABEL add_grep \n var_append $grepped$ echo Found at indexes $start_index$ to $end_index$ \\n  \n var_set $start_index$ calc sub $end_index$ 1 \n var_set $end_index$ calc add $start_index$ $search_length$ \n LABEL add_skip \n var_set $start_index$ calc add $start_index$ 1 \n var_set $end_index$ calc add $end_index$ 1 \n GOTO grep_loop IF $end_index$ LT $total_length$ \n var_set $blank$ echo   \n GOTO none_found IF $grepped$ IS $blank$ \n echo $grepped$ \n GOTO end \n LABEL none_found \n echo No matches found \n LABEL end",
           "coloured.yu": "echo \\033[36;m Hey look \\033[44;m coloured text \\033[38;43;m is supported \n echo \\033[0;m try typing in ansi colour codes with separated by spaces (slight variant where the ; is still required after the last number)",
           //concat_files.yu
         },
@@ -850,7 +982,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     const windows = this.windows; //.slice()
     for (let i = 0; i < windows.length; i++) {
       let w = windows[i][0];
-      let wco = windows[i][1];
+      let wco: [number, number] = windows[i][1];
       w.render_view_window(theme, this.options);
       this.context.drawImage(w.canvas, wco[0], wco[1], w.size[0], w.size[1]);
     }
@@ -956,15 +1088,39 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           window_rerendered = this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.Taskbar).map(([member, _coords]) => {
             member.handle_message_window(TaskbarMessageStandard.FocusCycleRight, true);
           }).some((r) => r);
+        } else if (SHORTCUTS["open-terminal"].includes(data.key)) {
+          //open the terminal
+          //kinda hacky but w/e, will change later (todo)
+          this.handle_request(WindowRequest.OpenWindow, {
+            id: this.id,
+            layer_name: "windows",
+            trusted: true,
+            name: "terminal",
+            open_layer_name: "windows",
+            unique: false,
+          });
         } else if (this.focused_id) {
-          //send to focused window
-          window_rerendered = this.windows.reverse().find(([member, _coords]) => {
+          const focused_window_info = this.windows.reverse().find(([member, _coords]) => {
             return member.id === this.focused_id;
-          })![0].handle_message_window(message, data);
+          });
+          if (!focused_window_info) return console.error("Window with focused id not found while sending keyboard shortcut mousedown event", this.focused_id);
+          const focused_window = focused_window_info![0];
+          const focused_window_coords = focused_window_info![1];
+          //based on coords, make sure window height and width do not keep expanding offscreen
+          if (isWindow(focused_window)) {
+            if (SHORTCUTS["window-grow-x"].includes(data.key) && focused_window_coords[0] + focused_window.size[0] > document.body.clientWidth * SCALE) {
+              return;
+            } else if (SHORTCUTS["window-grow-y"].includes(data.key) && focused_window_coords[1] + focused_window.size[1] > document.body.clientHeight * SCALE - TASKBAR_HEIGHT) {
+              return;
+            }
+          }
+          //send to focused window
+          window_rerendered = focused_window.handle_message_window(message, data);
         } else {
           return;
         }
       } else if (this.focused_id) {
+        //
         //send to focused window
         window_rerendered = this.windows.reverse().find(([member, _coords]) => {
           return member.id === this.focused_id;
@@ -1016,7 +1172,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       });
       window_rerendered = true;
     }
-    //so `window_rerendered = undefined`doesn't trigger this
+    //so `window_rerendered = undefined` doesn't trigger this
     if (window_rerendered === false) return;
     //WindowMessage.Resize just skips straight here
     //`return` before this if don't want to rerender
@@ -1089,9 +1245,17 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
       if (!request_window) return console.error("Window not found when trying to change coord of window"); //should never happen
       if (data.stick_bottom) {
         data.delta_coords[1] = document.body.clientHeight * SCALE - request_window.size[1] - current_coords[1];
+      } else if (data.stick_top) {
+        //todo: test
+        data.delta_coords[1] = -current_coords[1];
+      } else if (data.stick_bottom_taskbar_offset) {
+        data.delta_coords[1] = document.body.clientHeight * SCALE - request_window.size[1] - current_coords[1] - TASKBAR_HEIGHT;
       }
       if (data.stick_right) {
         data.delta_coords[0] = document.body.clientWidth * SCALE - request_window.size[0] - current_coords[0];
+      } else if (data.stick_left) {
+        //todo: test
+        data.delta_coords[0] = -current_coords[0];
       }
       //if coords unchanged, no need to change anything ofc
       if (data.delta_coords[0] === 0 && data.delta_coords[1] === 0) return;

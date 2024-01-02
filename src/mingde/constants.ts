@@ -9,6 +9,7 @@ export const START_MENU_VWIDTH: number = (42 - 5) * SCALE; //width of the vertic
 export const SCROLLBAR_WIDTH: number = 15 * SCALE;
 export const SCROLLBAR_BUTTON_HEIGHT: number = 15 * SCALE;
 export const SCROLL_DISTANCE: number = 5 * SCALE;
+export const RESIZE_STEP: number = 5 * SCALE
 export const FONT_NAME: string = "Times New Roman";
 export const FONT_NAME_MONO: string = "Hack, Consolas, monaco, monospace";
 export const WINDOW_MIN_DIMENSIONS: [number, number] = [100 * SCALE, 100 * SCALE];

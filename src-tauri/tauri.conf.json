@@ -19,6 +19,9 @@
       "fs": {
         "all": false,
         "writeFile": true
+      },
+      "window": {
+        "close": true
       }
     },
     "bundle": {

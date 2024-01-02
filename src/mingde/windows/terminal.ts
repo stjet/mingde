@@ -967,7 +967,7 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         this.vars = vars_snapshot;
       }
       //remove final trailing new line
-      return logged.trim();
+      return logged.trimEnd();
     } else if (command === "copy") {
       const input: string = parts.join(" ");
       if (parts[0] === "clear") {

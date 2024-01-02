@@ -112,7 +112,9 @@ export class StartMenu implements WindowLike<StartMenuMessage | StartMenuMessage
     this.layers[1].add_member(new HighlightButton(this, "Exit", [(padding + START_MENU_VWIDTH) / SCALE, height * (Object.values(ApplicationCategories).length + 2)], [(this.size[0] - START_MENU_VWIDTH) / SCALE, height], padding_y, () => {
       //placeholder
       //exit should close the page or something?
-      //
+      if (window.__TAURI__) {
+        window.__TAURI__.window.appWindow.close();
+      }
     }));
     //draw mingde icon n vertical bar thing (add to first layer)
     this.layers[0].add_member(new Icon(this, [padding / SCALE, padding / SCALE], [START_MENU_VWIDTH / SCALE, START_MENU_VWIDTH / SCALE], mingde_logo));
