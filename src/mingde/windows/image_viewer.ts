@@ -37,14 +37,28 @@ export class ImageViewer extends VerticalScrollableWithFocus<ImageViewerMessage>
           permission_type: "read_all_file_system",
           path: `/${input_value.slice(1)}`, //this is dumb but whatever, type validation
         });
-        if (typeof response === "undefined" || !response.startsWith("/")) {
+        if (typeof response === "undefined" || (!response.startsWith("/") && !response.startsWith("externfs:"))) {
           text_input.valid = ValidationState.Invalid;
           return;
         }
         if (!isIcon<ImageViewerMessage | WindowMessage>(this.components[2])) return;
         let icon: Icon<ImageViewerMessage | WindowMessage> = this.components[2];
         icon.image = new Image();
-        icon.image.src = response;
+        console.log(response)
+        if (response.startsWith("externfs:") && window.__TAURI__) {
+          //binary
+          window.__TAURI__.fs.readBinaryFile(response.split(":").slice(1).join(":"), {
+            dir: window.__TAURI__.fs.BaseDirectory.AppLocalData, //.local/share/dev.prussia.mingde
+          }).then((png_bytes) => {
+            console.log(png_bytes)
+            icon.image.src = URL.createObjectURL(
+              new Blob([png_bytes.buffer], { type: "image/png" }),
+            );
+            console.log(icon.image.src)
+          });
+        } else {
+          icon.image.src = response;
+        }
         const image_width: number = this.size[0] - 10 * SCALE - SCROLLBAR_WIDTH / SCALE;
         icon.size = [image_width, (icon.image.height / icon.image.width) * image_width || 1];
         this.entire_height = WINDOW_TOP_HEIGHT + 30 * SCALE + icon.size[1] + 5;

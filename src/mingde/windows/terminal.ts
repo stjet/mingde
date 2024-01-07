@@ -90,6 +90,13 @@ const command_info: Record<string, CommandInfo> = {
     max: 3,
     min: 1,
   },
+  fsjson: {
+    usage: "fsjson [optional: directory path]",
+    short: "Output filesystem as JSON",
+    long: "Output filesystem as JSON (or just directory if provided)",
+    max: 1,
+    min: 0,
+  },
   //variables
   var_list: {
     usage: "var_list [optional: --nameonly or name of variable]",
@@ -608,6 +615,21 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         return `Cannot remove path "${rm_path}", because command needs to be rerun after write_all_file_system permission granted, or remove path cannot be root.`;
       }
       return "";
+    } else if (command === "fsjson") {
+      let fsjson_path: Path = "/";
+      if (typeof parts[0] === "string") {
+        fsjson_path = FileSystemObject.navigate_path(this.path, parts[0]);
+      }
+      const response = this.send_request(WindowRequest.ReadFileSystem, {
+        permission_type: "read_all_file_system",
+        path: fsjson_path,
+      });
+      if (typeof response === "string") {
+        return `Path ${fsjson_path} is a file, not a directory.`;
+      } else if (typeof response === "undefined") {
+        return `Path "${fsjson_path}" does not exist, or command needs to be rerun after read_all_file_system permission granted.`;
+      }
+      return JSON.stringify(response);
     } else if (command === "var_list") {
       if (parts[0] === "--nameonly") {
         return Object.keys(this.vars).length === 0 ? "Empty" : Object.keys(this.vars).join(", ");

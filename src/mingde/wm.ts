@@ -442,13 +442,6 @@ export class Window<MessageType> implements WindowLike<MessageType> {
                 delta_coords: [0, 15],
               }, this.secret);
             } else if (SHORTCUTS["window-left-half"].includes(data.key) || SHORTCUTS["window-right-half"].includes(data.key)) {
-              //change coords
-              this.send_request(WindowRequest.ChangeCoords, {
-                delta_coords: [0, 0], //dummy
-                stick_left: SHORTCUTS["window-left-half"].includes(data.key),
-                stick_right: SHORTCUTS["window-right-half"].includes(data.key),
-                stick_top: true,
-              }, this.secret);
               if (this.resizable) {
                 //change size
                 this.size[0] = document.body.clientWidth * SCALE / 2;
@@ -470,14 +463,14 @@ export class Window<MessageType> implements WindowLike<MessageType> {
                 //top components need to be recreated since width changed
                 this.top_components = this.create_top_components();
               }
-            } else if (SHORTCUTS["window-top-half"].includes(data.key) || SHORTCUTS["window-bottom-half"].includes(data.key)) {
               //change coords
               this.send_request(WindowRequest.ChangeCoords, {
                 delta_coords: [0, 0], //dummy
-                stick_left: true,
-                stick_top: SHORTCUTS["window-top-half"].includes(data.key),
-                stick_bottom_taskbar_offset: SHORTCUTS["window-bottom-half"].includes(data.key),
+                stick_left: SHORTCUTS["window-left-half"].includes(data.key),
+                stick_right: SHORTCUTS["window-right-half"].includes(data.key),
+                stick_top: true,
               }, this.secret);
+            } else if (SHORTCUTS["window-top-half"].includes(data.key) || SHORTCUTS["window-bottom-half"].includes(data.key)) {
               if (this.resizable) {
                 //change size
                 this.size[0] = document.body.clientWidth * SCALE;
@@ -499,15 +492,14 @@ export class Window<MessageType> implements WindowLike<MessageType> {
                 //top components need to be recreated since width changed
                 this.top_components = this.create_top_components();
               }
-            } else if (SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-left-bottom-quad"].includes(data.key) || SHORTCUTS["window-right-top-quad"].includes(data.key)|| SHORTCUTS["window-right-bottom-quad"].includes(data.key)) {
               //change coords
               this.send_request(WindowRequest.ChangeCoords, {
                 delta_coords: [0, 0], //dummy
-                stick_left: SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-left-bottom-quad"].includes(data.key),
-                stick_right: SHORTCUTS["window-right-top-quad"].includes(data.key) || SHORTCUTS["window-right-bottom-quad"].includes(data.key),
-                stick_top: SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-right-top-quad"].includes(data.key),
-                stick_bottom_taskbar_offset: SHORTCUTS["window-left-bottom-quad"].includes(data.key) || SHORTCUTS["window-right-bottom-quad"].includes(data.key),
+                stick_left: true,
+                stick_top: SHORTCUTS["window-top-half"].includes(data.key),
+                stick_bottom_taskbar_offset: SHORTCUTS["window-bottom-half"].includes(data.key),
               }, this.secret);
+            } else if (SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-left-bottom-quad"].includes(data.key) || SHORTCUTS["window-right-top-quad"].includes(data.key)|| SHORTCUTS["window-right-bottom-quad"].includes(data.key)) {
               if (this.resizable) {
                 //change size
                 this.size[0] = (document.body.clientWidth * SCALE) / 2;
@@ -529,6 +521,14 @@ export class Window<MessageType> implements WindowLike<MessageType> {
                 //top components need to be recreated since width changed
                 this.top_components = this.create_top_components();
               }
+              //change coords
+              this.send_request(WindowRequest.ChangeCoords, {
+                delta_coords: [0, 0], //dummy
+                stick_left: SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-left-bottom-quad"].includes(data.key),
+                stick_right: SHORTCUTS["window-right-top-quad"].includes(data.key) || SHORTCUTS["window-right-bottom-quad"].includes(data.key),
+                stick_top: SHORTCUTS["window-left-top-quad"].includes(data.key) || SHORTCUTS["window-right-top-quad"].includes(data.key),
+                stick_bottom_taskbar_offset: SHORTCUTS["window-left-bottom-quad"].includes(data.key) || SHORTCUTS["window-right-bottom-quad"].includes(data.key),
+              }, this.secret);
             } else if (this.resizable) {
               if (SHORTCUTS["window-shrink-x"].includes(data.key)) {
                 this.size[0] -= RESIZE_STEP;
@@ -849,6 +849,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           //
         },
         "media": {
+          "a.image": "externfs:view.png",
           "backgrounds": {
             "bloby.image": "/backgrounds/bloby.png",
             "blury.image": "/backgrounds/blury.png",

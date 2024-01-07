@@ -18,7 +18,9 @@
       },
       "fs": {
         "all": false,
-        "writeFile": true
+        "readFile": true,
+        "writeFile": true,
+        "scope": ["$APPLOCALDATA/*"]
       },
       "window": {
         "close": true

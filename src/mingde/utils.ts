@@ -1,7 +1,9 @@
 import { CursorType } from './requests.js';
 import { SHORTCUTS } from './mutables.js';
 
-export const hex_chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
+export const hex_chars: string[] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
+
+export const b64_chars: string[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'];
 
 export enum ValidationState {
   Valid,
@@ -15,14 +17,57 @@ function gen_random(bytes_num: number) {
   return uint8;
 }
 
-function uint8_to_hex(uint8: Uint8Array) {
-  let hex = "";
+function uint8_to_hex(uint8: Uint8Array): string {
+  let hex: string = "";
   for (let i = 0; i < uint8.length; i++) {
     hex += hex_chars[Math.floor(uint8[i] / 16)];
     hex += hex_chars[uint8[i] % 16];
   }
   return hex;
 }
+
+//typically,
+//split into groups of 3 bytes (24 bits), pad if not a multiple of 3 bytes
+//split into 4 groups of 6 bits, convert to char
+//that's not quite what happens here
+/*
+export function uint8_to_b64(uint8: Uint8Array) {
+  //to binary string
+  const binary_string_all = [...uint8].map((b) => {
+    let binary_string: string = "00000000";
+    for (let i = 1; i <= 8; i++) {
+      let temp_b: number = b - 2 ** (8 - i);
+      if (temp_b >= 0) {
+        binary_string = binary_string.substr(0, i - 1) + "1" + binary_string.substr(i);
+        b = temp_b;
+      }
+    }
+    return binary_string;
+  }).join("");
+  console.log(binary_string_all);
+  let sixes: string[] = [];
+  for (let i = 0; i < binary_string_all.length / 6; i++) {
+    let six: string = binary_string_all.slice(i * 6, (i+ 1) * 6);
+    if (six.length !== 6) {
+      six += "0".repeat(6 - six.length);
+    }
+    sixes.push(six);
+  }
+  let b64: string = sixes.map((s) => {
+    //binary to number
+    let n: number = 0;
+    for (let i = 0; i < 6; i++) {
+      n += s[i] === "1" ? (2 ** (5 - i)) : 0;
+    }
+    return b64_chars[n];
+  }).join("");
+  //output padding
+  if (b64.length % 4 !== 0) {
+    b64 += "=".repeat(4 - b64.length % 4);
+  }
+  return b64;
+}
+*/
 
 export function gen_secret() {
   return uint8_to_hex(gen_random(16));
