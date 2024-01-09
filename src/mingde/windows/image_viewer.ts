@@ -44,17 +44,14 @@ export class ImageViewer extends VerticalScrollableWithFocus<ImageViewerMessage>
         if (!isIcon<ImageViewerMessage | WindowMessage>(this.components[2])) return;
         let icon: Icon<ImageViewerMessage | WindowMessage> = this.components[2];
         icon.image = new Image();
-        console.log(response)
         if (response.startsWith("externfs:") && window.__TAURI__) {
           //binary
           window.__TAURI__.fs.readBinaryFile(response.split(":").slice(1).join(":"), {
             dir: window.__TAURI__.fs.BaseDirectory.AppLocalData, //.local/share/dev.prussia.mingde
           }).then((png_bytes) => {
-            console.log(png_bytes)
             icon.image.src = URL.createObjectURL(
               new Blob([png_bytes.buffer], { type: "image/png" }),
             );
-            console.log(icon.image.src)
           });
         } else {
           icon.image.src = response;

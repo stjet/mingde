@@ -1,9 +1,10 @@
 import { DesktopBackgroundValue, Themes, THEME_INFOS } from './themes.js';
-import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager, isFocusableComponent } from './guards.js';
+import { isCoords, isOpenWindowValue, isChangeCursorValue, isChangeCoordsValue, isFocusWindowValue, isChangeThemeValue, isChangeSettingsValue, isChangeDesktopBackgroundValue, isMouseEvent, isKeyboardEvent, isWindowChangeEvent, isReadFileSystemValue, isWriteFileSystemValue, isRemoveFileSystemValue, isWindow, isWindowLike, isWindowManager, isFocusableComponent, isHexColor } from './guards.js';
 import { WINDOW_MIN_DIMENSIONS, WINDOW_DEFAULT_DIMENSIONS, CONFIG, WINDOW_TOP_HEIGHT, TASKBAR_HEIGHT, SCALE, FONT_SIZES, RESIZE_STEP } from './constants.js';
 import { SHORTCUTS, WindowManagerSettings, GenericShortcut } from './mutables.js';
 import { WindowRequest, WindowRequestValue, WindowRequestValues, CursorType } from './requests.js';
-import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, DesktopTime } from './utils.js';
+import { gen_secret, get_time, create_me_buttons, interpret_me_buttons, random_int, key_is_switch_focus_shortcut, get_switch_key_index, image_to_data_url, DesktopTime } from './utils.js';
+import { storage_write, storage_get, snapshot_hash, SystemSnapshot } from './storage.js';
 import type { Registry, Permissions, Permission } from './registry.js';
 import { FileSystemObject } from './fs.js';
 
@@ -402,7 +403,7 @@ export class Window<MessageType> implements WindowLike<MessageType> {
         }
       } else if (message === WindowMessage.KeyDown && isKeyboardEvent(data)) {
         if (data.altKey) {
-          if (this.cached_settings.shortcuts) {
+          if (this.cached_settings?.shortcuts) {
             //keyboard shortcuts
             //todo: the generic shortcuts can be condensed probably
             if (SHORTCUTS["close-window"].includes(data.key)) {
@@ -849,7 +850,9 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           //
         },
         "media": {
-          "a.image": "externfs:view.png",
+          "test": {
+            "_tauri_extern.image": "externfs:view.png",
+          },
           "backgrounds": {
             "bloby.image": "/backgrounds/bloby.png",
             "blury.image": "/backgrounds/blury.png",
@@ -949,7 +952,51 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     this.canvas.addEventListener("mingdewindowremove", (event: WindowChangeEvent) => {
       this.handle_message(WindowMessage.WindowRemove, event);
     });
-    //
+    //try to load previous snapshot, if available
+    const snapshot = storage_get();
+    if (snapshot !== null) {
+      snapshot_hash(snapshot).then((hash) => {
+        //ask for permission to load snapshot
+        let r_info = this.registry["allow-box"];
+        if (r_info) {
+          let allow_box = new (r_info.class)(`Load old snapshot?`, `System snapshot with hash ${hash} found, load?`, () => {
+            this.file_system.file_system = snapshot.file_system;
+            this.settings = snapshot.settings;
+            this.theme = snapshot.theme;
+            if (isHexColor(snapshot.background)) {
+              this.options.desktop_background = snapshot.background;
+              this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.DesktopBackground).forEach(([member, _coords]) => {
+                member.handle_message_window(DesktopBackgroundMessageStandard.ChangeBackground, true);
+              });
+            } else {
+              this.options.desktop_background = new Image();
+              this.options.desktop_background.src = snapshot.background;
+              this.options.desktop_background.onload = () => {
+                this.windows.filter(([member, _coords]) => member.sub_type === WindowLikeType.DesktopBackground).forEach(([member, _coords]) => {
+                  member.handle_message_window(DesktopBackgroundMessageStandard.ChangeBackground, true);
+                });
+              };
+            }
+            //trigger rerender
+            this.windows.forEach(([member, _coords]) => member.handle_message_window(WindowMessage.ChangeTheme, this.theme));
+            this.render();
+          });
+          let start_coords: [number, number] = [(this.size[0] - allow_box.size[0]) / SCALE / 2 - random_int(-40, 40), (this.size[1] - allow_box.size[1]) / SCALE / 2 - random_int(-40, 40)]; //the center-ish
+          if (start_coords[1] < 0) {
+            start_coords[1] = 0;
+          }
+          let found_layer = this.layers.find((l) => l.windows_only);
+          if (found_layer) {
+            found_layer.add_member(allow_box, start_coords);
+            this.render();
+          } else {
+            throw Error("Could not find windows layer when adding allow box");
+          }
+        } else {
+          throw Error("Could not find allow box in registry");
+        }
+      });
+    }
     //first render
     this.render();
   }
@@ -1183,7 +1230,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
     if (!data.id) throw Error("Request sent without id property set. This should never happen.");
     let r_info = this.registry["allow-box"];
     if (r_info) {
-      let allow_box = new (r_info.class)(data.id, permission, () => {
+      let allow_box = new (r_info.class)(`Asking to ${permission}`, `Window with id ${data.id} wants to ask for permission ${permission}`, () => {
         //change permission (todo: this should be message to be more elm like)
         if (this.permissions[data.id]) {
           this.permissions[data.id][permission] = true;
@@ -1213,7 +1260,7 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
   handle_request<T extends WindowRequest>(request: T, data: WindowRequestValues[T]) {
     if (!data.layer_name || !data.id) return;
     if (CONFIG.DEBUG.REQUESTS) {
-      console.debug(request, data, request === WindowRequest.ChangeTheme);
+      console.debug(request, data);
     }
     if (request === WindowRequest.CloseWindow) {
       //only lets window close itself, so we don't really care if trusted
@@ -1422,6 +1469,33 @@ export class WindowManager implements Canvas<WindowMessage, WindowLike<any>> {
           //invalid permission requested for path
           return;
         }
+      }
+    } else if (request === WindowRequest.SnapshotSystem) {
+      if (this.permissions[data.id]?.snapshot_system) {
+        const desktop_background: DesktopBackgroundValue = this.options.desktop_background; 
+        const snapshot: SystemSnapshot = {
+          theme: this.theme,
+          file_system: this.file_system.file_system,
+          settings: this.settings,
+          background: typeof desktop_background === "string" ? desktop_background : (desktop_background.src.startsWith("blob:") ? image_to_data_url(desktop_background) : desktop_background.src),
+        };
+        storage_write(snapshot);
+        snapshot_hash(snapshot).then((hash) => {
+          //kinda hacky but w/e, will change later (todo)
+          this.handle_request(WindowRequest.OpenWindow, {
+            id: this.id,
+            layer_name: "windows",
+            trusted: true,
+            name: "alert-box",
+            open_layer_name: "windows",
+            unique: false,
+            args: ["System Snapshotted", `Hash: ${hash}`],
+          });
+        });
+        return;
+      } else {
+        //alert box blah blah
+        this.ask_permission("snapshot_system", request, data);
       }
     } else {
       return;

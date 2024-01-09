@@ -21,7 +21,7 @@ declare global {
   if (registry.terminal) {
     wm.layers[1].add_member(new registry.terminal.class(...registry.terminal.args), [300, 150]);
   }
-
+  
   wm.render_stop = false;
 
   wm.render();

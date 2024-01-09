@@ -17,6 +17,7 @@ export enum WindowRequest {
   ReadFileSystem = "ReadFileSystem",
   WriteFileSystem = "WriteFileSystem",
   RemoveFileSystem = "RemoveFileSystem",
+  SnapshotSystem = "SnapshotSystem", //write to local storage
 }
 
 //should be extended if requests need additional values, eg, OpenWindow request needs to know what window to open
@@ -104,5 +105,6 @@ export interface WindowRequestValues {
   [WindowRequest.ReadFileSystem]: ReadFileSystemValue;
   [WindowRequest.WriteFileSystem]: WriteFileSystemValue;
   [WindowRequest.RemoveFileSystem]: RemoveFileSystemValue;
+  [WindowRequest.SnapshotSystem]: WindowRequestValue;
 }
 

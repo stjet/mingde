@@ -17,7 +17,7 @@ function gen_random(bytes_num: number) {
   return uint8;
 }
 
-function uint8_to_hex(uint8: Uint8Array): string {
+export function uint8_to_hex(uint8: Uint8Array): string {
   let hex: string = "";
   for (let i = 0; i < uint8.length; i++) {
     hex += hex_chars[Math.floor(uint8[i] / 16)];
@@ -44,7 +44,6 @@ export function uint8_to_b64(uint8: Uint8Array) {
     }
     return binary_string;
   }).join("");
-  console.log(binary_string_all);
   let sixes: string[] = [];
   for (let i = 0; i < binary_string_all.length / 6; i++) {
     let six: string = binary_string_all.slice(i * 6, (i+ 1) * 6);
@@ -159,8 +158,8 @@ export function calculate_lines(text: string, font_size: number, font_name: stri
       let overflow_measured_width: number = context.measureText(words[i]).width;
       if (overflow_measured_width > line_width) {
         //if word gets too long, break it up and wrap over several lines
-        const old_visible_length: number = visible_line.length;
-        let word_line: string = visible_line; //starting from the current line (don't start long word on new line)
+        //const old_visible_length: number = visible_line.length;
+        let word_line: string = line; //starting from the current line (don't start long word on new line)
         for (let j = 0; j < words[i].length; j++) {
           let word_measured_width: number = context.measureText(word_line + words[i][j]).width;
           if (word_measured_width > line_width && word_line.length === 0) {
@@ -174,7 +173,7 @@ export function calculate_lines(text: string, font_size: number, font_name: stri
           }
         }
         if (word_line.length > 0) {
-          line = line + word_line.slice(old_visible_length) + " ";
+          line = word_line + " ";
           visible_line = word_line;
         } else {
           line = "";
@@ -193,5 +192,12 @@ export function calculate_lines(text: string, font_size: number, font_name: stri
   if (line) lines.push(line);
   //get rid of trailing space added that wasn't there
   return lines.map((l) => l.slice(0, -1));
+}
+
+export function image_to_data_url(image: HTMLImageElement) {
+  const canvas: HTMLCanvasElement = document.createElement("CANVAS") as HTMLCanvasElement;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, image.width, image.height);
+  return canvas.toDataURL();
 }
 

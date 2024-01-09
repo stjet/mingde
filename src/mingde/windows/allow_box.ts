@@ -2,7 +2,6 @@ import { WindowWithFocus, WindowMessage, Layer } from '../wm.js';
 import { WindowRequest } from '../requests.js';
 import { isMouseEvent } from '../guards.js';
 import { FONT_SIZES, SCALE, WINDOW_TOP_HEIGHT } from '../constants.js';
-import type { Permission } from '../registry.js';
 import type { Themes } from '../themes.js';
 
 import { Paragraph } from '../components/paragraph.js';
@@ -18,17 +17,13 @@ enum AllowBoxMessage {
 }
 
 export class AllowBox extends WindowWithFocus<AllowBoxMessage> {
-  private id_perm: string;
-  private permission: keyof Permission;
   private allow_func: () => void;
 
-  constructor(id_perm: string, permission: keyof Permission, allow_func: () => void) {
-    super(allow_box_size, `Asking to ${permission}`, "allow-box", false);
-    this.id_perm = id_perm;
-    this.permission = permission;
+  constructor(title: string, message: string, allow_func: () => void) {
+    super(allow_box_size, title, "allow-box", false);
     this.allow_func = allow_func;
     this.layers = [new Layer(this, "alert-body")];
-    this.layers[0].add_member(new Paragraph(this, `Window with id ${this.id_perm} wants to ask for permission ${this.permission}`, [margin, WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE + 4], "text_primary", "NORMAL", allow_box_size[0] - margin * 2));
+    this.layers[0].add_member(new Paragraph(this, message, [margin, WINDOW_TOP_HEIGHT / SCALE + FONT_SIZES.NORMAL / SCALE + 4], "text_primary", "NORMAL", allow_box_size[0] - margin * 2));
     const button_height: number = 22;
     this.layers[0].add_member(new Button(this, "Deny", [allow_box_size[0] / 2 - button_width - 10, allow_box_size[1] - button_height - 10], button_width, (button_height - FONT_SIZES.BUTTON / SCALE)/ 2, () => {
       this.send_request(WindowRequest.CloseWindow, {});

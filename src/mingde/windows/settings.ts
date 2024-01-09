@@ -102,7 +102,7 @@ export class Settings extends WindowWithFocus<SettingsMessage> {
             });
             if (typeof response === "undefined") {
               text_input.valid = ValidationState.Invalid;
-            } else if (typeof response.startsWith("/backgrounds/")) {
+            } else if (response.startsWith("/backgrounds/")) {
               let bg_image: HTMLImageElement = new Image();
               bg_image.src = response;
               //ask for permission once image loaded
@@ -112,6 +112,20 @@ export class Settings extends WindowWithFocus<SettingsMessage> {
                 });
               };
               text_input.valid = ValidationState.Valid;
+            } else if (response.startsWith("externfs:")) {
+              let bg_image: HTMLImageElement = new Image();
+              window.__TAURI__.fs.readBinaryFile(response.split(":").slice(1).join(":"), {
+                dir: window.__TAURI__.fs.BaseDirectory.AppLocalData, //.local/share/dev.prussia.mingde
+              }).then((png_bytes) => {
+                bg_image.src = URL.createObjectURL(
+                  new Blob([png_bytes.buffer], { type: "image/png" }),
+                );
+                bg_image.onload = () => {
+                  this.send_request(WindowRequest.ChangeDesktopBackground, {
+                    new_info: bg_image,
+                  });
+                };
+              });
             } else {
               text_input.valid = ValidationState.Invalid;
             }

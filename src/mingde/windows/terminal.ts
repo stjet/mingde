@@ -233,6 +233,13 @@ const command_info: Record<string, CommandInfo> = {
     max: 2,
     min: 1,
   },
+  snapshot: {
+    usage: "snapshot",
+    short: "Snapshot system to local storage",
+    long: "Snapshot system to local storage for later loading",
+    max: 0,
+    min: 0,
+  },
   //
   //opening window and stuff
   terminal: {
@@ -1023,12 +1030,27 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
           return `Path "${bg_path}" does not exist, or command needs to be rerun after read_all_file_system permission granted.`;
         } else {
           let bg_image: HTMLImageElement = new Image();
-          bg_image.src = response;
-          bg_image.onload = () => {
-            this.send_request(WindowRequest.ChangeDesktopBackground, {
-              new_info: bg_image,
+          if (response.startsWith("externfs:")) {
+            window.__TAURI__.fs.readBinaryFile(response.split(":").slice(1).join(":"), {
+              dir: window.__TAURI__.fs.BaseDirectory.AppLocalData, //.local/share/dev.prussia.mingde
+            }).then((png_bytes) => {
+              bg_image.src = URL.createObjectURL(
+                new Blob([png_bytes.buffer], { type: "image/png" }),
+              );
+              bg_image.onload = () => {
+                this.send_request(WindowRequest.ChangeDesktopBackground, {
+                  new_info: bg_image,
+                });
+              };
             });
-          };
+          } else {
+            bg_image.src = response;
+            bg_image.onload = () => {
+              this.send_request(WindowRequest.ChangeDesktopBackground, {
+                new_info: bg_image,
+              });
+            };
+          }
         }
       }
       return "Trying to change background";
@@ -1048,6 +1070,9 @@ export class Terminal extends VerticalScrollable<TerminalMessage> {
         return `Theme must be one of the following: ${THEMES_LIST.join(", ")}`;
       }
       return "Trying to change theme";
+    } else if (command === "snapshot") {
+      this.send_request(WindowRequest.SnapshotSystem, {});
+      return "Send snapshot request";
     } else if (command === "terminal" || command === "calculator" || command === "settings" || command === "shortcuts" || command === "minesweeper" || command === "reversi" || command === "bag" || command === "malvim" || command === "exporter") {
       //if this.secret not given to OpenWindow request, wm will ask user for permission
       this.send_request(WindowRequest.OpenWindow, {

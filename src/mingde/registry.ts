@@ -25,6 +25,7 @@ export interface Permission {
   write_all_file_system?: boolean;
   write_usr_file_system?: boolean;
   write_prg_file_system?: boolean;
+  snapshot_system?: boolean;
 }
 
 export type READ_FILE_SYSTEM_PERMISSIONS = `read_${string}_file_system`;
