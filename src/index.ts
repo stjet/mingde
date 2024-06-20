@@ -21,6 +21,12 @@ declare global {
   if (registry.terminal) {
     wm.layers[1].add_member(new registry.terminal.class(...registry.terminal.args), [300, 150]);
   }
+
+  //url query param to open a (single) window
+  let open_window = new URLSearchParams(window.location.search).get("open");
+  if (open_window && registry[open_window]) {
+    wm.layers[1].add_member(new registry[open_window].class(...registry[open_window].args), [50, 50]);
+  }
   
   wm.render_stop = false;
 

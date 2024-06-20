@@ -7,11 +7,12 @@ const fs = require("fs");
 const port = 1381;
 
 http.createServer((req, res) => {
+  let p = (new URL(req.url, "http://notimportant.com")).pathname;
   let req_path;
-  if (!req.url.includes(".")) {
-    req_path = path.join(__dirname, "src", req.url, "index.html");
+  if (!p.includes(".")) {
+    req_path = path.join(__dirname, "src", p, "index.html");
   } else {
-    req_path = path.join(__dirname, "src", req.url);
+    req_path = path.join(__dirname, "src", p);
   }
   if (!fs.existsSync(req_path)) {
     res.writeHead(404);
